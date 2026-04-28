@@ -45,6 +45,8 @@ from deepeval.tracing.patchers import (
 from deepeval.tracing.types import (
     AgentSpan,
     BaseSpan,
+    EvalMode,
+    EvalSession,
     LlmSpan,
     RetrieverSpan,
     SpanType,
@@ -69,7 +71,6 @@ from deepeval.tracing.context import current_span_context, current_trace_context
 from deepeval.tracing.types import TestCaseMetricPair
 from deepeval.tracing.api import PromptApi
 from deepeval.tracing.trace_test_manager import trace_testing_manager
-
 
 if TYPE_CHECKING:
     from deepeval.dataset.golden import Golden
@@ -162,10 +163,6 @@ class TraceManager:
         self.active_spans: Dict[str, BaseSpan] = (
             {}
         )  # Map of span_uuid to BaseSpan
-        # Map each trace created during evaluation_loop to the Golden that was active
-        # when it was started. This lets us evaluate traces against the correct golden
-        # since we cannot rely on positional indexing as the order is not guaranteed.
-        self.trace_uuid_to_golden: Dict[str, Golden] = {}
 
         settings = get_settings()
         # Initialize queue and worker thread for trace posting
@@ -196,13 +193,12 @@ class TraceManager:
         self.openai_client = None
         self.tracing_enabled = True
 
-        # Evals
-        self.evaluating = False
-        self.evaluation_loop = False
-        self.traces_to_evaluate_order: List[str] = []
-        self.traces_to_evaluate: List[Trace] = []
-        self.integration_traces_to_evaluate: List[Trace] = []
-        self.test_case_metrics: List[TestCaseMetricPair] = []
+        # All per-evaluation-run state is grouped on this single object.
+        # See deepeval.tracing.types.EvalSession for the field-by-field
+        # breakdown. Resetting an in-flight evaluation is a one-line
+        # ``self.eval_session = EvalSession()``, which makes exit cleanup
+        # atomic and impossible to half-do.
+        self.eval_session: EvalSession = EvalSession()
 
         # Register an exit handler to warn about unprocessed traces
         atexit.register(self._warn_on_exit)
@@ -218,6 +214,20 @@ class TraceManager:
                 trace_worker_status=TraceWorkerStatus.WARNING,
                 description=f"Set {CONFIDENT_TRACE_FLUSH}=1 as an environment variable to flush remaining traces to Confident AI.",
             )
+
+    @property
+    def is_evaluating(self) -> bool:
+        """True when running under any evaluation pipeline (any non-OFF mode).
+
+        Delegates to ``eval_session`` so external callers don't need to know
+        about the session indirection.
+        """
+        return self.eval_session.is_evaluating
+
+    @property
+    def is_iterator(self) -> bool:
+        """True when running under either evals_iterator path (sync or async)."""
+        return self.eval_session.is_iterator
 
     def mask(self, data: Any):
         if self.custom_mask_fn is not None:
@@ -273,8 +283,8 @@ class TraceManager:
         )
         self.active_traces[trace_uuid] = new_trace
         self.traces.append(new_trace)
-        if self.evaluation_loop:
-            self.traces_to_evaluate_order.append(trace_uuid)
+        if self.eval_session.mode == EvalMode.ITERATOR_ASYNC:
+            self.eval_session.pending_traces[trace_uuid] = new_trace
             # Associate the current Golden with this trace so we can
             # later evaluate traces against the correct golden, even if more traces
             # are created than goldens or the order interleaves.
@@ -283,7 +293,9 @@ class TraceManager:
 
                 current_golden = get_current_golden()
                 if current_golden is not None:
-                    self.trace_uuid_to_golden[trace_uuid] = current_golden
+                    self.eval_session.trace_uuid_to_golden[trace_uuid] = (
+                        current_golden
+                    )
             except Exception:
                 # not much we can do, but if the golden is not there during evaluation
                 # we will write out a verbose debug log
@@ -313,20 +325,31 @@ class TraceManager:
                 )
                 trace_testing_manager.test_dict = make_json_serializable(body)
             #  Post the trace to the server before removing it
-            elif not self.evaluating:
-                self.post_trace(trace)
+            elif not self.is_evaluating:
+                if not trace.drop:
+                    self.post_trace(trace)
             else:
-                if self.evaluation_loop:
-                    if self.integration_traces_to_evaluate:
+                if self.eval_session.mode == EvalMode.ITERATOR_ASYNC:
+                    session = self.eval_session
+                    if session.test_case_metrics:
                         pass
-                    elif self.test_case_metrics:
-                        pass
-                    elif trace_uuid in self.traces_to_evaluate_order:
-                        self.traces_to_evaluate.append(trace)
-                        self.traces_to_evaluate.sort(
-                            key=lambda t: self.traces_to_evaluate_order.index(
-                                t.uuid
-                            )
+                    elif (
+                        trace_uuid in session.pending_traces
+                        and trace not in session.traces_to_evaluate
+                    ):
+                        # Per-trace dedup: an integration may have already
+                        # queued this exact trace before calling end_trace
+                        # (e.g. llama_index does this in prepare_to_exit_span).
+                        session.traces_to_evaluate.append(trace)
+                        # Sort by start order. `pending_traces` is insertion-
+                        # ordered, so build the position map once instead of
+                        # doing an O(n) `index()` lookup per comparison.
+                        order = {
+                            uuid: i
+                            for i, uuid in enumerate(session.pending_traces)
+                        }
+                        session.traces_to_evaluate.sort(
+                            key=lambda t: order.get(t.uuid, len(order))
                         )
                 else:
                     # print(f"Ending trace: {trace.root_spans}")
@@ -343,6 +366,14 @@ class TraceManager:
 
             # Remove from active traces
             del self.active_traces[trace_uuid]
+
+            # Evict finished traces to bound memory usage.
+            # Skipped during evaluation (pipeline reads them after completion).
+            if not self.is_evaluating:
+                try:
+                    self.traces.remove(trace)
+                except ValueError:
+                    pass
 
     def set_trace_status(self, trace_uuid: str, status: TraceSpanStatus):
         """Manually set the status of a trace."""
@@ -422,7 +453,7 @@ class TraceManager:
         description: Optional[str] = None,
         environment: Optional[str] = None,
     ):
-        if get_settings().CONFIDENT_TRACE_VERBOSE and self.evaluating is False:
+        if get_settings().CONFIDENT_TRACE_VERBOSE and not self.is_evaluating:
             console = Console()
             message_prefix = "[dim][Confident AI Trace Log][/dim]"
             if trace_worker_status == TraceWorkerStatus.SUCCESS:
@@ -714,6 +745,13 @@ class TraceManager:
         while span_stack:
             span = span_stack.pop()
 
+            if span.drop:
+                if span.children:
+                    for child in span.children:
+                        child.parent_uuid = span.parent_uuid
+                    span_stack.extend(span.children)
+                continue
+
             # Convert BaseSpan to BaseApiSpan
             api_span = self._convert_span_to_api_span(span)
 
@@ -733,16 +771,18 @@ class TraceManager:
             if span.children:
                 span_stack.extend(span.children)
 
-        # Convert perf_counter values to ISO 8601 strings
+        # Convert perf_counter values to ISO 8601 strings.
+        # Fall back to current time when a value is missing.
         start_time = (
             to_zod_compatible_iso(perf_counter_to_datetime(trace.start_time))
             if trace.start_time
-            else None
+            else to_zod_compatible_iso(perf_counter_to_datetime(perf_counter()))
         )
-        end_time = (
-            to_zod_compatible_iso(perf_counter_to_datetime(trace.end_time))
-            if trace.end_time
-            else None
+        effective_end_time = (
+            trace.end_time if trace.end_time else perf_counter()
+        )
+        end_time = to_zod_compatible_iso(
+            perf_counter_to_datetime(effective_end_time)
         )
 
         return TraceApi(
@@ -768,6 +808,7 @@ class TraceManager:
             toolsCalled=trace.tools_called,
             expectedTools=trace.expected_tools,
             testCaseId=trace.test_case_id,
+            turnId=trace.turn_id,
             confident_api_key=trace.confident_api_key,
             environment=(
                 self.environment if not trace.environment else trace.environment
@@ -796,16 +837,17 @@ class TraceManager:
         input_data = span.input
         output_data = span.output
 
-        # Convert perf_counter values to ISO 8601 strings
+        # Convert perf_counter values to ISO 8601 strings.
+        # Fall back to current time if end_time was never set (e.g. sync
+        # generators whose __exit__ ran in a different thread-pool thread).
         start_time = (
             to_zod_compatible_iso(perf_counter_to_datetime(span.start_time))
             if span.start_time
-            else None
+            else to_zod_compatible_iso(perf_counter_to_datetime(perf_counter()))
         )
-        end_time = (
-            to_zod_compatible_iso(perf_counter_to_datetime(span.end_time))
-            if span.end_time
-            else None
+        effective_end_time = span.end_time if span.end_time else perf_counter()
+        end_time = to_zod_compatible_iso(
+            perf_counter_to_datetime(effective_end_time)
         )
 
         from deepeval.evaluate.utils import create_metric_data
@@ -944,9 +986,7 @@ class Observer:
             ):
                 self.trace_uuid = current_trace.uuid
             else:
-                trace = trace_manager.start_new_trace(
-                    metric_collection=self.metric_collection
-                )
+                trace = trace_manager.start_new_trace()
                 self.trace_uuid = trace.uuid
                 current_trace_context.set(trace)
 
@@ -1002,11 +1042,13 @@ class Observer:
         # Get the current span from the context instead of looking it up by UUID
         current_span = current_span_context.get()
 
+        # ContextVar may not match when sync generators run across different
+        # thread-pool threads (e.g. FastAPI StreamingResponse). Fall back to a
+        # direct UUID lookup so the span still gets closed properly.
         if not current_span or current_span.uuid != self.uuid:
-            print(
-                f"Error: Current span in context does not match the span being exited. Expected UUID: {self.uuid}, Got: {current_span.uuid if current_span else 'None'}"
-            )
-            return
+            current_span = trace_manager.get_span_by_uuid(self.uuid)
+            if not current_span:
+                return
 
         current_span.end_time = end_time
         if exc_type is not None:
@@ -1057,22 +1099,34 @@ class Observer:
                 current_span_context.set(None)
         else:
             current_trace = current_trace_context.get()
-            if current_trace.input is None:
-                current_trace.input = trace_manager.mask(self.function_kwargs)
-            if current_trace.output is None:
-                current_trace.output = trace_manager.mask(self.result)
-            if current_span.status == TraceSpanStatus.ERRORED:
-                current_trace.status = TraceSpanStatus.ERRORED
-            if current_trace and current_trace.uuid == current_span.trace_uuid:
-                other_active_spans = [
-                    span
-                    for span in trace_manager.active_spans.values()
-                    if span.trace_uuid == current_span.trace_uuid
-                ]
+            # ContextVar for trace may also be lost in thread-pool scenarios;
+            # fall back to the trace UUID stored on the span.
+            if (
+                not current_trace
+                or current_trace.uuid != current_span.trace_uuid
+            ):
+                current_trace = trace_manager.get_trace_by_uuid(
+                    current_span.trace_uuid
+                )
+            if current_trace:
+                if current_trace.input is None:
+                    current_trace.input = trace_manager.mask(
+                        self.function_kwargs
+                    )
+                if current_trace.output is None:
+                    current_trace.output = trace_manager.mask(self.result)
+                if current_span.status == TraceSpanStatus.ERRORED:
+                    current_trace.status = TraceSpanStatus.ERRORED
+                if current_trace.uuid == current_span.trace_uuid:
+                    other_active_spans = [
+                        span
+                        for span in trace_manager.active_spans.values()
+                        if span.trace_uuid == current_span.trace_uuid
+                    ]
 
-                if not other_active_spans:
-                    trace_manager.end_trace(current_span.trace_uuid)
-                    current_trace_context.set(None)
+                    if not other_active_spans:
+                        trace_manager.end_trace(current_span.trace_uuid)
+                        current_trace_context.set(None)
 
             current_span_context.set(None)
 
@@ -1145,27 +1199,37 @@ def observe(
     type: Optional[
         Union[Literal["agent", "llm", "retriever", "tool"], str]
     ] = None,
+    _drop_if_root: bool = False,
+    _internal: bool = False,
     **observe_kwargs,
 ):
     """
     Decorator to trace a function as a span.
 
     Args:
-        span_type: The type of span to create (AGENT, LLM, RETRIEVER, TOOL, or custom string)
-        **observe_kwargs: Additional arguments to pass to the Observer
-
-    Returns:
-        A decorator function that wraps the original function with a Observer
+        type: The type of span to create (agent, llm, retriever, tool, or custom string).
+        _drop_if_root: If True, skip observation when there is no active parent span.
+        _internal: If True, only observe when CONFIDENT_TRACE_INTERNAL is enabled.
+        **observe_kwargs: Additional arguments to pass to the Observer.
     """
 
     def decorator(func):
         func_name = func.__name__  # Get func_name outside wrappers
+
+        def _should_skip_observe():
+            if _drop_if_root and current_span_context.get() is None:
+                return True
+            if _internal and not get_settings().CONFIDENT_TRACE_INTERNAL:
+                return True
+            return False
 
         # Async generator function
         if inspect.isasyncgenfunction(func):
 
             @functools.wraps(func)
             def asyncgen_wrapper(*args, **func_kwargs):
+                if _should_skip_observe():
+                    return func(*args, **func_kwargs)
 
                 sig = inspect.signature(func)
                 bound = sig.bind(*args, **func_kwargs)
@@ -1200,6 +1264,8 @@ def observe(
 
             @functools.wraps(func)
             def gen_wrapper(*args, **func_kwargs):
+                if _should_skip_observe():
+                    return func(*args, **func_kwargs)
 
                 sig = inspect.signature(func)
                 bound = sig.bind(*args, **func_kwargs)
@@ -1226,15 +1292,46 @@ def observe(
 
                 def gen():
                     observer.__enter__()
+                    # Capture the span and trace refs set by __enter__.
+                    # Generator locals survive across yields, but ContextVars
+                    # don't when Starlette dispatches each next() to a
+                    # different thread-pool thread. We restore them on every
+                    # resume so child @observe'd calls see the right parent.
+                    _span = current_span_context.get()
+                    _trace = current_trace_context.get()
+                    it = iter(original_gen)
+                    last_yielded_value = None
+                    return_value = None
                     try:
-                        yield from original_gen
-                        observer.__exit__(None, None, None)
-                    except GeneratorExit:
-                        observer.__exit__(None, None, None)
-                        return
+                        while True:
+                            try:
+                                # 1. Pull the next chunk
+                                value = next(it)
+                                last_yielded_value = value
+                            except StopIteration as e:
+                                return_value = e.value
+                                break
+                            yield value
+                            # After resume (potentially in a new thread),
+                            # restore ContextVars before the next iteration
+                            # runs user code that may create child spans.
+                            current_span_context.set(_span)
+                            if _trace is not None:
+                                current_trace_context.set(_trace)
+
+                        observer.result = (
+                            return_value
+                            if return_value is not None
+                            else last_yielded_value
+                        )
                     except Exception as e:
+                        current_span_context.set(_span)
+                        if _trace is not None:
+                            current_trace_context.set(_trace)
                         observer.__exit__(e.__class__, e, e.__traceback__)
                         raise
+                    finally:  # GeneratorExit execption directly brings us to final block
+                        observer.__exit__(None, None, None)
 
                 return gen()
 
@@ -1245,7 +1342,8 @@ def observe(
 
             @functools.wraps(func)
             async def async_wrapper(*args, **func_kwargs):
-                # func_name = func.__name__ # Removed from here
+                if _should_skip_observe():
+                    return await func(*args, **func_kwargs)
                 sig = inspect.signature(func)
                 bound_args = sig.bind(*args, **func_kwargs)
                 bound_args.apply_defaults()
@@ -1276,7 +1374,8 @@ def observe(
 
             @functools.wraps(func)
             def wrapper(*args, **func_kwargs):
-                # func_name = func.__name__ # Removed from here
+                if _should_skip_observe():
+                    return func(*args, **func_kwargs)
                 sig = inspect.signature(func)
                 bound_args = sig.bind(*args, **func_kwargs)
                 bound_args.apply_defaults()

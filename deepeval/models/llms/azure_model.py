@@ -138,6 +138,11 @@ class AzureOpenAIModel(DeepEvalBaseLLM):
         )
 
         self.model_data = OPENAI_MODELS_DATA.get(model)
+
+        # Omit temperature for models that don't support it
+        if self.model_data and self.model_data.supports_temperature is False:
+            temperature = None
+
         cost_per_input_token, cost_per_output_token = require_costs(
             self.model_data,
             model,
@@ -149,7 +154,7 @@ class AzureOpenAIModel(DeepEvalBaseLLM):
         self.model_data.input_price = cost_per_input_token
         self.model_data.output_price = cost_per_output_token
 
-        if temperature < 0:
+        if temperature is not None and temperature < 0:
             raise DeepEvalError("Temperature must be >= 0.")
         self.temperature = temperature
 
@@ -188,7 +193,11 @@ class AzureOpenAIModel(DeepEvalBaseLLM):
                     model=self.deployment_name,
                     messages=[{"role": "user", "content": content}],
                     response_format=schema,
-                    temperature=self.temperature,
+                    **(
+                        {"temperature": self.temperature}
+                        if self.temperature is not None
+                        else {}
+                    ),
                     **self.generation_kwargs,
                 )
                 structured_output: BaseModel = completion.choices[
@@ -206,7 +215,11 @@ class AzureOpenAIModel(DeepEvalBaseLLM):
                         {"role": "user", "content": content},
                     ],
                     response_format={"type": "json_object"},
-                    temperature=self.temperature,
+                    **(
+                        {"temperature": self.temperature}
+                        if self.temperature is not None
+                        else {}
+                    ),
                     **self.generation_kwargs,
                 )
                 json_output = trim_and_load_json(
@@ -223,7 +236,11 @@ class AzureOpenAIModel(DeepEvalBaseLLM):
             messages=[
                 {"role": "user", "content": content},
             ],
-            temperature=self.temperature,
+            **(
+                {"temperature": self.temperature}
+                if self.temperature is not None
+                else {}
+            ),
             **self.generation_kwargs,
         )
         output = completion.choices[0].message.content
@@ -254,7 +271,11 @@ class AzureOpenAIModel(DeepEvalBaseLLM):
                     model=self.deployment_name,
                     messages=[{"role": "user", "content": content}],
                     response_format=schema,
-                    temperature=self.temperature,
+                    **(
+                        {"temperature": self.temperature}
+                        if self.temperature is not None
+                        else {}
+                    ),
                     **self.generation_kwargs,
                 )
                 structured_output: BaseModel = completion.choices[
@@ -272,7 +293,11 @@ class AzureOpenAIModel(DeepEvalBaseLLM):
                         {"role": "user", "content": content},
                     ],
                     response_format={"type": "json_object"},
-                    temperature=self.temperature,
+                    **(
+                        {"temperature": self.temperature}
+                        if self.temperature is not None
+                        else {}
+                    ),
                     **self.generation_kwargs,
                 )
                 json_output = trim_and_load_json(
@@ -289,7 +314,11 @@ class AzureOpenAIModel(DeepEvalBaseLLM):
             messages=[
                 {"role": "user", "content": content},
             ],
-            temperature=self.temperature,
+            **(
+                {"temperature": self.temperature}
+                if self.temperature is not None
+                else {}
+            ),
             **self.generation_kwargs,
         )
         output = completion.choices[0].message.content
@@ -323,7 +352,11 @@ class AzureOpenAIModel(DeepEvalBaseLLM):
         completion = client.chat.completions.create(
             model=self.deployment_name,
             messages=[{"role": "user", "content": content}],
-            temperature=self.temperature,
+            **(
+                {"temperature": self.temperature}
+                if self.temperature is not None
+                else {}
+            ),
             logprobs=True,
             top_logprobs=top_logprobs,
             **self.generation_kwargs,
@@ -351,7 +384,11 @@ class AzureOpenAIModel(DeepEvalBaseLLM):
         completion = await client.chat.completions.create(
             model=self.deployment_name,
             messages=[{"role": "user", "content": content}],
-            temperature=self.temperature,
+            **(
+                {"temperature": self.temperature}
+                if self.temperature is not None
+                else {}
+            ),
             logprobs=True,
             top_logprobs=top_logprobs,
             **self.generation_kwargs,
@@ -442,33 +479,60 @@ class AzureOpenAIModel(DeepEvalBaseLLM):
         return kwargs
 
     def _build_client(self, cls):
-        # Only require the API key / Azure ad token if no token provider is supplied
-        azure_ad_token = None
-        api_key = None
+
+        # Defer authentication validation to the OpenAI SDK.
+        # Only fail fast if the user explicitly provided an empty credential.
+
+        api_key_value = None
+        if self.api_key is not None:
+            try:
+                api_key_value = self.api_key.get_secret_value()
+            except Exception:
+                api_key_value = str(self.api_key)
+
+        azure_ad_token_value = None
+        if self.azure_ad_token is not None:
+            try:
+                azure_ad_token_value = self.azure_ad_token.get_secret_value()
+            except Exception:
+                azure_ad_token_value = str(self.azure_ad_token)
 
         if self.azure_ad_token_provider is None:
-            if self.azure_ad_token is not None:
-                azure_ad_token = require_secret_api_key(
-                    self.azure_ad_token,
-                    provider_label="AzureOpenAI",
-                    env_var_name="AZURE_OPENAI_AD_TOKEN",
-                    param_hint="`azure_ad_token` to AzureOpenAIModel(...)",
-                )
-            else:
-                api_key = require_secret_api_key(
-                    self.api_key,
-                    provider_label="AzureOpenAI",
-                    env_var_name="AZURE_OPENAI_API_KEY",
-                    param_hint="`api_key` to AzureOpenAIModel(...)",
+            if (
+                azure_ad_token_value is not None
+                and isinstance(azure_ad_token_value, str)
+                and not azure_ad_token_value.strip()
+            ):
+                raise DeepEvalError(
+                    "azure_ad_token was provided but is empty. Omit it to defer auth to the OpenAI SDK."
                 )
 
+            if (
+                api_key_value is not None
+                and isinstance(api_key_value, str)
+                and not api_key_value.strip()
+            ):
+                raise DeepEvalError(
+                    "api_key was provided but is empty. Omit it to defer auth to the OpenAI SDK."
+                )
+            # else: neither key nor token nor provider set -> defer to SDK
+
+        # Enforce precedence: provider > token > api_key
+
+        if self.azure_ad_token_provider is not None:
+            azure_ad_token_value = None
+            api_key_value = None
+        elif azure_ad_token_value is not None:
+            api_key_value = None
+        # else: api_key_value may be used (or None => SDK-managed auth)
+
         kw = dict(
-            api_key=api_key,
+            api_key=api_key_value,
             api_version=self.api_version,
             azure_endpoint=self.base_url,
             azure_deployment=self.deployment_name,
             azure_ad_token_provider=self.azure_ad_token_provider,
-            azure_ad_token=azure_ad_token,
+            azure_ad_token=azure_ad_token_value,
             **self._client_kwargs(),
         )
         try:
