@@ -5,11 +5,18 @@ from itertools import chain
 from types import SimpleNamespace
 
 from deepeval.synthesizer.chunking.context_generator import ContextGenerator
+from deepeval.models.base_model import DeepEvalBaseLLM
 from deepeval.models.embedding_models.openai_embedding_model import (
     OpenAIEmbeddingModel,
 )
 
 MODULE_DIR = os.path.dirname(os.path.realpath(__file__))
+
+requires_openai_key = pytest.mark.skipif(
+    os.getenv("OPENAI_API_KEY") is None
+    or not os.getenv("OPENAI_API_KEY").strip(),
+    reason="needs OPENAI_API_KEY",
+)
 
 
 # stub the langchain loader/splitter
@@ -62,6 +69,38 @@ def _make_stub_embedder():
             return [0.0, 0.0, 0.0, 0.0]
 
     return _Stub()
+
+
+class _StubLLM(DeepEvalBaseLLM):
+    """Minimal non-native LLM so ContextGenerator can be constructed without
+    any provider API key (it is never actually called by these tests)."""
+
+    def __init__(self):
+        # Intentionally skip the base __init__, which eagerly calls
+        # load_model(); nothing here needs a real model.
+        pass
+
+    def load_model(self, *args, **kwargs):
+        return None
+
+    def generate(self, *args, **kwargs) -> str:
+        return ""
+
+    async def a_generate(self, *args, **kwargs) -> str:
+        return ""
+
+    def get_model_name(self, *args, **kwargs) -> str:
+        return "stub-llm"
+
+
+class _FakeCountCollection:
+    """A stand-in Chroma collection that only exposes ``count()``."""
+
+    def __init__(self, count_value):
+        self._count_value = count_value
+
+    def count(self):
+        return self._count_value
 
 
 class _CapturingCollection:
@@ -158,6 +197,7 @@ def ensure_synthesizer_data():
         pytest.skip(f"Test PDF file not found: {pdf_path}")
 
 
+@requires_openai_key
 def test_generate_contexts(
     context_generator_fixture,
     ensure_synthesizer_data,
@@ -180,6 +220,7 @@ def test_generate_contexts(
     ), "More chunks utilized than available"
 
 
+@requires_openai_key
 def test_multiple_context_generations(
     context_generator_fixture,
     ensure_synthesizer_data,
@@ -210,6 +251,7 @@ def test_multiple_context_generations(
     ), "More chunks utilized than available"
 
 
+@requires_openai_key
 def test_many_docs_should_spawn_a_single_chroma_client(monkeypatch, tmp_path):
     """
     Ensure ContextGenerator uses a single shared Chroma PersistentClient per run.
@@ -283,6 +325,7 @@ def test_many_docs_should_spawn_a_single_chroma_client(monkeypatch, tmp_path):
         )
 
 
+@requires_openai_key
 @pytest.mark.asyncio
 async def test_async_many_docs_uses_single_chroma_client(monkeypatch, tmp_path):
     """
@@ -334,6 +377,91 @@ async def test_async_many_docs_uses_single_chroma_client(monkeypatch, tmp_path):
 ##############
 
 
+def _make_generator_for_validation(chunk_size=1024, chunk_overlap=0):
+    # A stub LLM avoids any provider API key; validate_chunk_size only reads
+    # self.chunk_size / self.chunk_overlap, so no model or embedding call runs.
+    return ContextGenerator(
+        document_paths=["dummy.txt"],
+        embedder=_make_stub_embedder(),
+        model=_StubLLM(),
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+    )
+
+
+def test_validate_chunk_size_zero_chunks_raises_value_error():
+    """
+    A document that produces 0 chunks must raise the intended, informative
+    ValueError rather than an UnboundLocalError. Regression test: previously
+    the combined-suggestion check referenced `adjust_chunk_size` /
+    `adjust_overlap`, which were never assigned when num_chunks == 0.
+    """
+    generator = _make_generator_for_validation()
+
+    with pytest.raises(ValueError) as exc_info:
+        generator.validate_chunk_size(
+            min_contexts_per_source_file=1,
+            collection=_FakeCountCollection(0),
+        )
+
+    message = str(exc_info.value)
+    assert "0 chunks" in message
+    # No dangling "options" header when there is nothing to suggest.
+    assert "You have the following options:" not in message
+
+
+def test_validate_chunk_size_zero_chunks_with_overlap_raises_value_error():
+    """
+    A 0-chunk document offers no actionable suggestions even when a non-zero
+    overlap is set, because no chunk_size/overlap adjustment can produce chunks
+    from a document that yielded none. It must still raise the informative
+    ValueError without a dangling options list. (This branch also previously
+    raised UnboundLocalError.)
+    """
+    generator = _make_generator_for_validation(chunk_size=1024, chunk_overlap=5)
+
+    with pytest.raises(ValueError) as exc_info:
+        generator.validate_chunk_size(
+            min_contexts_per_source_file=3,
+            collection=_FakeCountCollection(0),
+        )
+
+    message = str(exc_info.value)
+    assert "0 chunks" in message
+    assert "You have the following options:" not in message
+
+
+def test_validate_chunk_size_insufficient_chunks_still_lists_options():
+    """
+    The normal shortfall path (num_chunks > 0 but below the requested number of
+    contexts) keeps raising a ValueError with the full suggestion list.
+    """
+    generator = _make_generator_for_validation()
+
+    with pytest.raises(ValueError) as exc_info:
+        generator.validate_chunk_size(
+            min_contexts_per_source_file=5,
+            collection=_FakeCountCollection(2),
+        )
+
+    message = str(exc_info.value)
+    assert "with 2 chunks" in message
+    assert "You have the following options:" in message
+    assert "chunk_size" in message
+
+
+def test_validate_chunk_size_passes_when_enough_chunks():
+    """When there are enough chunks, validation is a no-op (no exception)."""
+    generator = _make_generator_for_validation()
+
+    # Should not raise.
+    generator.validate_chunk_size(
+        min_contexts_per_source_file=2,
+        collection=_FakeCountCollection(10),
+    )
+
+
+@requires_openai_key
 def test_sync_min_context_size_validation(monkeypatch, tmp_path, caplog):
     """
     If a document collection has fewer chunks than `min_context_size`,
@@ -384,6 +512,7 @@ def test_sync_min_context_size_validation(monkeypatch, tmp_path, caplog):
 ###########################
 
 
+@requires_openai_key
 @pytest.mark.asyncio
 async def test_async_per_doc_failure_is_logged_and_others_continue(
     monkeypatch, tmp_path, caplog
@@ -457,6 +586,7 @@ async def test_async_per_doc_failure_is_logged_and_others_continue(
 #####################
 
 
+@requires_openai_key
 def test_sync_deletes_one_collection_per_doc(monkeypatch, tmp_path):
     """
     After each document pipeline completes, we call delete_collection(name).

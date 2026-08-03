@@ -7,6 +7,11 @@ from deepeval.test_case import (
 )
 from deepeval.metrics import BaseMetric
 from deepeval.models import DeepEvalBaseLLM
+from deepeval.metrics.faithfulness.faithfulness import (
+    _faithfulness_claims_multimodal_instruction,
+    _faithfulness_truths_limit_phrase,
+    _faithfulness_truths_multimodal_instruction,
+)
 from deepeval.utils import get_or_create_event_loop, prettify_list
 from deepeval.metrics.utils import (
     construct_verbose_logs,
@@ -15,8 +20,6 @@ from deepeval.metrics.utils import (
     a_generate_with_schema_and_extract,
     generate_with_schema_and_extract,
 )
-from deepeval.metrics.summarization.template import SummarizationTemplate
-from deepeval.metrics.faithfulness.template import FaithfulnessTemplate
 from deepeval.metrics.indicator import metric_progress_indicator
 from deepeval.metrics.summarization.schema import (
     ScoreType,
@@ -39,7 +42,7 @@ class SummarizationMetric(BaseMetric):
 
     def __init__(
         self,
-        threshold: float = 0.5,
+        threshold: Optional[float] = 0.5,
         n: int = 5,
         model: Optional[Union[str, DeepEvalBaseLLM]] = None,
         assessment_questions: Optional[List[str]] = None,
@@ -48,6 +51,7 @@ class SummarizationMetric(BaseMetric):
         strict_mode: bool = False,
         verbose_mode: bool = False,
         truths_extraction_limit: Optional[int] = None,
+        flaky: bool = False,
     ):
         self.threshold = 1 if strict_mode else threshold
         self.model, self.using_native_model = initialize_model(model)
@@ -63,6 +67,7 @@ class SummarizationMetric(BaseMetric):
         self.async_mode = async_mode
         self.strict_mode = strict_mode
         self.verbose_mode = verbose_mode
+        self.flaky = flaky
 
         self.truths_extraction_limit = truths_extraction_limit
         if self.truths_extraction_limit is not None:
@@ -87,6 +92,8 @@ class SummarizationMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self, _show_indicator=_show_indicator, _in_component=_in_component
         ):
@@ -119,7 +126,7 @@ class SummarizationMetric(BaseMetric):
                 }
                 self.score = min(alignment_score, coverage_score)
                 self.reason = self._generate_reason()
-                self.success = self.score >= self.threshold
+                self.success = self.is_successful()
                 self.verbose_logs = construct_verbose_logs(
                     self,
                     steps=[
@@ -152,6 +159,8 @@ class SummarizationMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self,
             async_mode=True,
@@ -177,7 +186,7 @@ class SummarizationMetric(BaseMetric):
             }
             self.score = min(alignment_score, coverage_score)
             self.reason = await self._a_generate_reason()
-            self.success = self.score >= self.threshold
+            self.success = self.is_successful()
             self.verbose_logs = construct_verbose_logs(
                 self,
                 steps=[
@@ -213,7 +222,8 @@ class SummarizationMetric(BaseMetric):
                 ):
                     questions.append(verdict.question)
 
-        prompt: dict = SummarizationTemplate.generate_reason(
+        prompt: dict = self._get_prompt(
+            "generate_reason",
             contradictions=contradictions,
             redundancies=redundancies,
             questions=questions,
@@ -257,7 +267,8 @@ class SummarizationMetric(BaseMetric):
                 ):
                     questions.append(verdict.question)
 
-        prompt: dict = SummarizationTemplate.generate_reason(
+        prompt: dict = self._get_prompt(
+            "generate_reason",
             contradictions=contradictions,
             redundancies=redundancies,
             questions=questions,
@@ -313,8 +324,10 @@ class SummarizationMetric(BaseMetric):
         return 0 if self.strict_mode and score < self.threshold else score
 
     async def _a_generate_answers(self, text: str) -> List[str]:
-        prompt = SummarizationTemplate.generate_answers(
-            questions=self.assessment_questions, text=text
+        prompt = self._get_prompt(
+            "generate_answers",
+            questions=self.assessment_questions,
+            text=text,
         )
         return await a_generate_with_schema_and_extract(
             metric=self,
@@ -325,8 +338,10 @@ class SummarizationMetric(BaseMetric):
         )
 
     def _generate_answers(self, text: str) -> List[str]:
-        prompt = SummarizationTemplate.generate_answers(
-            questions=self.assessment_questions, text=text
+        prompt = self._get_prompt(
+            "generate_answers",
+            questions=self.assessment_questions,
+            text=text,
         )
         return generate_with_schema_and_extract(
             metric=self,
@@ -337,7 +352,11 @@ class SummarizationMetric(BaseMetric):
         )
 
     async def _a_generate_assessment_questions(self, text: str) -> List[str]:
-        prompt = SummarizationTemplate.generate_questions(text=text, n=self.n)
+        prompt = self._get_prompt(
+            "generate_questions",
+            text=text,
+            n=self.n,
+        )
         return await a_generate_with_schema_and_extract(
             metric=self,
             prompt=prompt,
@@ -347,7 +366,11 @@ class SummarizationMetric(BaseMetric):
         )
 
     def _generate_assessment_questions(self, text: str) -> List[str]:
-        prompt = SummarizationTemplate.generate_questions(text=text, n=self.n)
+        prompt = self._get_prompt(
+            "generate_questions",
+            text=text,
+            n=self.n,
+        )
         return generate_with_schema_and_extract(
             metric=self,
             prompt=prompt,
@@ -418,8 +441,10 @@ class SummarizationMetric(BaseMetric):
         if len(self.claims) == 0:
             return []
 
-        prompt = SummarizationTemplate.generate_alignment_verdicts(
-            summary_claims=self.claims, original_text="\n\n".join(self.truths)
+        prompt = self._get_prompt(
+            "generate_alignment_verdicts",
+            summary_claims=self.claims,
+            original_text="\n\n".join(self.truths),
         )
         return await a_generate_with_schema_and_extract(
             metric=self,
@@ -438,8 +463,10 @@ class SummarizationMetric(BaseMetric):
         if len(self.claims) == 0:
             return []
 
-        prompt = SummarizationTemplate.generate_alignment_verdicts(
-            summary_claims=self.claims, original_text="\n\n".join(self.truths)
+        prompt = self._get_prompt(
+            "generate_alignment_verdicts",
+            summary_claims=self.claims,
+            original_text="\n\n".join(self.truths),
         )
         return generate_with_schema_and_extract(
             metric=self,
@@ -454,9 +481,17 @@ class SummarizationMetric(BaseMetric):
 
     async def _a_generate_truths(self, text: str) -> List[str]:
         # Borrow faithfulness template
-        prompt = FaithfulnessTemplate.generate_truths(
+        prompt = self._get_prompt(
+            "generate_truths",
+            template_class="FaithfulnessMetric",
+            multimodal=False,
             retrieval_context=text,
-            extraction_limit=self.truths_extraction_limit,
+            limit=_faithfulness_truths_limit_phrase(
+                self.truths_extraction_limit
+            ),
+            multimodal_instruction=_faithfulness_truths_multimodal_instruction(
+                False
+            ),
         )
         return await a_generate_with_schema_and_extract(
             metric=self,
@@ -468,7 +503,15 @@ class SummarizationMetric(BaseMetric):
 
     async def _a_generate_claims(self, text: str) -> List[str]:
         # Borrow faithfulness template
-        prompt = FaithfulnessTemplate.generate_claims(actual_output=text)
+        prompt = self._get_prompt(
+            "generate_claims",
+            template_class="FaithfulnessMetric",
+            multimodal=False,
+            actual_output=text,
+            multimodal_instruction=_faithfulness_claims_multimodal_instruction(
+                False
+            ),
+        )
         return await a_generate_with_schema_and_extract(
             metric=self,
             prompt=prompt,
@@ -479,9 +522,17 @@ class SummarizationMetric(BaseMetric):
 
     def _generate_truths(self, text: str) -> List[str]:
         # Borrow faithfulness template
-        prompt = FaithfulnessTemplate.generate_truths(
+        prompt = self._get_prompt(
+            "generate_truths",
+            template_class="FaithfulnessMetric",
+            multimodal=False,
             retrieval_context=text,
-            extraction_limit=self.truths_extraction_limit,
+            limit=_faithfulness_truths_limit_phrase(
+                self.truths_extraction_limit
+            ),
+            multimodal_instruction=_faithfulness_truths_multimodal_instruction(
+                False
+            ),
         )
         return generate_with_schema_and_extract(
             metric=self,
@@ -493,7 +544,15 @@ class SummarizationMetric(BaseMetric):
 
     def _generate_claims(self, text: str) -> List[str]:
         # Borrow faithfulness template
-        prompt = FaithfulnessTemplate.generate_claims(actual_output=text)
+        prompt = self._get_prompt(
+            "generate_claims",
+            template_class="FaithfulnessMetric",
+            multimodal=False,
+            actual_output=text,
+            multimodal_instruction=_faithfulness_claims_multimodal_instruction(
+                False
+            ),
+        )
         return generate_with_schema_and_extract(
             metric=self,
             prompt=prompt,
@@ -501,16 +560,6 @@ class SummarizationMetric(BaseMetric):
             extract_schema=lambda s: s.claims,
             extract_json=lambda data: data["claims"],
         )
-
-    def is_successful(self) -> bool:
-        if self.error is not None:
-            self.success = False
-        else:
-            try:
-                self.success = self.score >= self.threshold
-            except TypeError:
-                self.success = False
-        return self.success
 
     @property
     def __name__(self):

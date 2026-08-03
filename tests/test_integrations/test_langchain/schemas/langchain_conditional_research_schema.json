@@ -48,7 +48,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2NeuSPhzCa2q51ENqzSYKnvqbqy",
               "service_tier": "default",
@@ -113,7 +113,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2NgnoEFJVTxTtoRVQQVkRKTmeTr",
               "service_tier": "default",
@@ -143,6 +143,7 @@
       "toolsCalled": [
         {
           "name": "research_topic",
+          "type": "FUNCTION",
           "output": {
             "content": "Quantum computing achieves new milestone in error correction.",
             "additional_kwargs": {},
@@ -156,7 +157,8 @@
             "topic": "quantum computing"
           }
         }
-      ]
+      ],
+      "integration": "LangChain"
     }
   ],
   "agentSpans": [],
@@ -192,9 +194,11 @@
         "content": "I used the research tool to look up \"quantum computing.\" The tool returned: \"Quantum computing achieves new milestone in error correction.\"",
         "tool_calls": []
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 182.0,
-      "outputTokenCount": 30.0
+      "outputTokenCount": 30.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     },
     {
       "uuid": "019d050f-bb2b-74b0-8d0d-120797e466db",
@@ -227,9 +231,11 @@
           }
         ]
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 142.0,
-      "outputTokenCount": 90.0
+      "outputTokenCount": 90.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     }
   ],
   "retrieverSpans": [],
@@ -253,7 +259,8 @@
         "name": "research_topic",
         "tool_call_id": "call_Lpaz8JxzGEfeU2TF3qYXC2Mb",
         "status": "success"
-      }
+      },
+      "integration": "LangChain"
     }
   ],
   "startTime": "2026-03-19T07:46:50.282Z",
@@ -308,7 +315,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2NeuSPhzCa2q51ENqzSYKnvqbqy",
           "service_tier": "default",
@@ -373,7 +380,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2NgnoEFJVTxTtoRVQQVkRKTmeTr",
           "service_tier": "default",
@@ -404,6 +411,7 @@
   "toolsCalled": [
     {
       "name": "research_topic",
+      "type": "FUNCTION",
       "output": {
         "content": "Quantum computing achieves new milestone in error correction.",
         "additional_kwargs": {},

@@ -1,4 +1,5 @@
-from typing import Optional, List, Type, Union
+import warnings
+from typing import Optional, List, Tuple, Type, Union
 
 from deepeval.utils import (
     get_or_create_event_loop,
@@ -14,14 +15,31 @@ from deepeval.metrics.utils import (
 from deepeval.test_case import (
     LLMTestCase,
     SingleTurnParams,
+    RetrievedContextData,
 )
 from deepeval.metrics import BaseMetric
 from deepeval.models import DeepEvalBaseLLM
-from deepeval.metrics.contextual_precision.template import (
-    ContextualPrecisionTemplate,
-)
+from deepeval.metrics.retrieval_context_display import id_retrieval_context
 from deepeval.metrics.indicator import metric_progress_indicator
+from deepeval.test_case import MLLMImage
 import deepeval.metrics.contextual_precision.schema as cpschema
+
+
+def _contextual_precision_verdict_fields(
+    retrieval_context: List[str],
+    multimodal: bool,
+) -> Tuple[str, Union[List[str], List[Union[str, MLLMImage]]], str]:
+    document_count_str = (
+        f" ({len(retrieval_context)} document"
+        f"{'s' if len(retrieval_context) > 1 else ''})"
+    )
+    context_to_display = (
+        id_retrieval_context(retrieval_context)
+        if multimodal
+        else retrieval_context
+    )
+    multimodal_note = " (which can be text or an image)" if multimodal else ""
+    return document_count_str, context_to_display, multimodal_note
 
 
 class ContextualPrecisionMetric(BaseMetric):
@@ -33,15 +51,13 @@ class ContextualPrecisionMetric(BaseMetric):
 
     def __init__(
         self,
-        threshold: float = 0.5,
+        threshold: Optional[float] = 0.5,
         model: Optional[Union[str, DeepEvalBaseLLM]] = None,
         include_reason: bool = True,
         async_mode: bool = True,
         strict_mode: bool = False,
         verbose_mode: bool = False,
-        evaluation_template: Type[
-            ContextualPrecisionTemplate
-        ] = ContextualPrecisionTemplate,
+        flaky: bool = False,
     ):
         self.threshold = 1 if strict_mode else threshold
         self.include_reason = include_reason
@@ -50,7 +66,7 @@ class ContextualPrecisionMetric(BaseMetric):
         self.async_mode = async_mode
         self.strict_mode = strict_mode
         self.verbose_mode = verbose_mode
-        self.evaluation_template = evaluation_template
+        self.flaky = flaky
 
     def measure(
         self,
@@ -73,6 +89,8 @@ class ContextualPrecisionMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self, _show_indicator=_show_indicator, _in_component=_in_component
         ):
@@ -89,19 +107,21 @@ class ContextualPrecisionMetric(BaseMetric):
             else:
                 input = test_case.input
                 expected_output = test_case.expected_output
-                retrieval_context = test_case.retrieval_context
+                grouped_retrieval_context = self._group_retrieval_contexts(
+                    test_case.retrieval_context
+                )
 
                 self.verdicts: List[cpschema.ContextualPrecisionVerdict] = (
                     self._generate_verdicts(
                         input,
                         expected_output,
-                        retrieval_context,
+                        grouped_retrieval_context,
                         multimodal,
                     )
                 )
                 self.score = self._calculate_score()
                 self.reason = self._generate_reason(input, multimodal)
-                self.success = self.score >= self.threshold
+                self.success = self.is_successful()
                 self.verbose_logs = construct_verbose_logs(
                     self,
                     steps=[
@@ -132,6 +152,8 @@ class ContextualPrecisionMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self,
             async_mode=True,
@@ -140,16 +162,21 @@ class ContextualPrecisionMetric(BaseMetric):
         ):
             input = test_case.input
             expected_output = test_case.expected_output
-            retrieval_context = test_case.retrieval_context
+            grouped_retrieval_context = self._group_retrieval_contexts(
+                test_case.retrieval_context
+            )
 
             self.verdicts: List[cpschema.ContextualPrecisionVerdict] = (
                 await self._a_generate_verdicts(
-                    input, expected_output, retrieval_context, multimodal
+                    input,
+                    expected_output,
+                    grouped_retrieval_context,
+                    multimodal,
                 )
             )
             self.score = self._calculate_score()
             self.reason = await self._a_generate_reason(input, multimodal)
-            self.success = self.score >= self.threshold
+            self.success = self.is_successful()
             self.verbose_logs = construct_verbose_logs(
                 self,
                 steps=[
@@ -167,11 +194,12 @@ class ContextualPrecisionMetric(BaseMetric):
             {"verdict": verdict.verdict, "reason": verdict.reason}
             for verdict in self.verdicts
         ]
-        prompt = self.evaluation_template.generate_reason(
+        prompt = self._get_prompt(
+            "generate_reason",
+            multimodal=multimodal,
             input=input,
             verdicts=retrieval_contexts_verdicts,
             score=format(self.score, ".2f"),
-            multimodal=multimodal,
         )
 
         return await a_generate_with_schema_and_extract(
@@ -190,11 +218,12 @@ class ContextualPrecisionMetric(BaseMetric):
             {"verdict": verdict.verdict, "reason": verdict.reason}
             for verdict in self.verdicts
         ]
-        prompt = self.evaluation_template.generate_reason(
+        prompt = self._get_prompt(
+            "generate_reason",
+            multimodal=multimodal,
             input=input,
             verdicts=retrieval_contexts_verdicts,
             score=format(self.score, ".2f"),
-            multimodal=multimodal,
         )
 
         return generate_with_schema_and_extract(
@@ -212,11 +241,17 @@ class ContextualPrecisionMetric(BaseMetric):
         retrieval_context: List[str],
         multimodal: bool,
     ) -> List[cpschema.ContextualPrecisionVerdict]:
-        prompt = self.evaluation_template.generate_verdicts(
+        doc_str, ctx_disp, mm_note = _contextual_precision_verdict_fields(
+            retrieval_context, multimodal
+        )
+        prompt = self._get_prompt(
+            "generate_verdicts",
+            multimodal=multimodal,
             input=input,
             expected_output=expected_output,
-            retrieval_context=retrieval_context,
-            multimodal=multimodal,
+            document_count_str=doc_str,
+            context_to_display=ctx_disp,
+            multimodal_note=mm_note,
         )
 
         return await a_generate_with_schema_and_extract(
@@ -237,11 +272,17 @@ class ContextualPrecisionMetric(BaseMetric):
         retrieval_context: List[str],
         multimodal: bool,
     ) -> List[cpschema.ContextualPrecisionVerdict]:
-        prompt = self.evaluation_template.generate_verdicts(
+        doc_str, ctx_disp, mm_note = _contextual_precision_verdict_fields(
+            retrieval_context, multimodal
+        )
+        prompt = self._get_prompt(
+            "generate_verdicts",
+            multimodal=multimodal,
             input=input,
             expected_output=expected_output,
-            retrieval_context=retrieval_context,
-            multimodal=multimodal,
+            document_count_str=doc_str,
+            context_to_display=ctx_disp,
+            multimodal_note=mm_note,
         )
 
         return generate_with_schema_and_extract(
@@ -254,6 +295,39 @@ class ContextualPrecisionMetric(BaseMetric):
                 for item in data["verdicts"]
             ],
         )
+
+    def _group_retrieval_contexts(
+        self, retrieval_contexts: List[Union[str, RetrievedContextData]]
+    ) -> List[str]:
+        grouped_contexts_dict = {}
+        ordered_identifiers = []
+
+        for context in retrieval_contexts:
+            if isinstance(context, RetrievedContextData):
+                if context.source not in grouped_contexts_dict:
+                    ordered_identifiers.append(
+                        {"type": "grouped", "key": context.source}
+                    )
+                    grouped_contexts_dict[context.source] = []
+                grouped_contexts_dict[context.source].append(context.context)
+            else:
+                ordered_identifiers.append(
+                    {"type": "standalone", "value": context}
+                )
+
+        processed_contexts = []
+        for item in ordered_identifiers:
+            if item["type"] == "grouped":
+                source = item["key"]
+                contents = grouped_contexts_dict[source]
+                combined_content = f"Source: {source}\n" + "\n---\n".join(
+                    contents
+                )
+                processed_contexts.append(combined_content)
+            else:
+                processed_contexts.append(item["value"])
+
+        return processed_contexts
 
     def _calculate_score(self):
         number_of_verdicts = len(self.verdicts)
@@ -280,16 +354,6 @@ class ContextualPrecisionMetric(BaseMetric):
         # Calculate weighted cumulative precision
         score = sum_weighted_precision_at_k / relevant_nodes_count
         return 0 if self.strict_mode and score < self.threshold else score
-
-    def is_successful(self) -> bool:
-        if self.error is not None:
-            self.success = False
-        else:
-            try:
-                self.success = self.score >= self.threshold
-            except TypeError:
-                self.success = False
-        return self.success
 
     @property
     def __name__(self):

@@ -11,9 +11,6 @@ from deepeval.metrics.utils import (
     generate_with_schema_and_extract,
 )
 from deepeval.models import DeepEvalBaseLLM
-from deepeval.metrics.knowledge_retention.template import (
-    KnowledgeRetentionTemplate,
-)
 from deepeval.metrics.indicator import metric_progress_indicator
 from deepeval.metrics.knowledge_retention.schema import (
     Knowledge,
@@ -28,12 +25,13 @@ class KnowledgeRetentionMetric(BaseConversationalMetric):
 
     def __init__(
         self,
-        threshold: float = 0.5,
+        threshold: Optional[float] = 0.5,
         model: Optional[Union[str, DeepEvalBaseLLM]] = None,
         include_reason: bool = True,
         async_mode: bool = True,
         strict_mode: bool = False,
         verbose_mode: bool = False,
+        flaky: bool = False,
     ):
         self.threshold = 1 if strict_mode else threshold
         self.model, self.using_native_model = initialize_model(model)
@@ -42,6 +40,7 @@ class KnowledgeRetentionMetric(BaseConversationalMetric):
         self.async_mode = async_mode
         self.strict_mode = strict_mode
         self.verbose_mode = verbose_mode
+        self.flaky = flaky
 
     def measure(
         self,
@@ -60,6 +59,8 @@ class KnowledgeRetentionMetric(BaseConversationalMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self, _show_indicator=_show_indicator, _in_component=_in_component
         ):
@@ -82,7 +83,7 @@ class KnowledgeRetentionMetric(BaseConversationalMetric):
                 )
                 self.score = self._calculate_score()
                 self.reason = self._generate_reason()
-                self.success = self.score >= self.threshold
+                self.success = self.is_successful()
                 self.verbose_logs = construct_verbose_logs(
                     self,
                     steps=[
@@ -111,6 +112,8 @@ class KnowledgeRetentionMetric(BaseConversationalMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self,
             async_mode=True,
@@ -125,7 +128,7 @@ class KnowledgeRetentionMetric(BaseConversationalMetric):
             )
             self.score = self._calculate_score()
             self.reason = await self._a_generate_reason()
-            self.success = self.score >= self.threshold
+            self.success = self.is_successful()
             self.verbose_logs = construct_verbose_logs(
                 self,
                 steps=[
@@ -145,7 +148,8 @@ class KnowledgeRetentionMetric(BaseConversationalMetric):
             if verdict.verdict.strip().lower() == "yes":
                 attritions.append(verdict.reason)
 
-        prompt: dict = KnowledgeRetentionTemplate.generate_reason(
+        prompt: dict = self._get_prompt(
+            "generate_reason",
             attritions=attritions,
             score=format(self.score, ".2f"),
         )
@@ -166,7 +170,8 @@ class KnowledgeRetentionMetric(BaseConversationalMetric):
             if verdict.verdict.strip().lower() == "yes":
                 attritions.append(verdict.reason)
 
-        prompt: dict = KnowledgeRetentionTemplate.generate_reason(
+        prompt: dict = self._get_prompt(
+            "generate_reason",
             attritions=attritions,
             score=format(self.score, ".2f"),
         )
@@ -194,7 +199,8 @@ class KnowledgeRetentionMetric(BaseConversationalMetric):
             if len(accumulated_knowledge) == 0:
                 continue
 
-            prompt = KnowledgeRetentionTemplate.generate_verdict(
+            prompt = self._get_prompt(
+                "generate_verdict",
                 llm_message=turns[i].content,
                 accumulated_knowledge=accumulated_knowledge,
             )
@@ -224,7 +230,8 @@ class KnowledgeRetentionMetric(BaseConversationalMetric):
             if len(accumulated_knowledge) == 0:
                 continue
 
-            prompt = KnowledgeRetentionTemplate.generate_verdict(
+            prompt = self._get_prompt(
+                "generate_verdict",
                 llm_message=turns[i].content,
                 accumulated_knowledge=accumulated_knowledge,
             )
@@ -251,7 +258,8 @@ class KnowledgeRetentionMetric(BaseConversationalMetric):
             previous_turns = turns[:i]
             user_message = turns[i].content
 
-            prompt = KnowledgeRetentionTemplate.extract_data(
+            prompt = self._get_prompt(
+                "extract_data",
                 user_message=user_message,
                 previous_turns=[
                     convert_turn_to_dict(turn) for turn in previous_turns
@@ -279,7 +287,8 @@ class KnowledgeRetentionMetric(BaseConversationalMetric):
             previous_turns = turns[:i]
             user_message = turns[i].content
 
-            prompt = KnowledgeRetentionTemplate.extract_data(
+            prompt = self._get_prompt(
+                "extract_data",
                 user_message=user_message,
                 previous_turns=[
                     convert_turn_to_dict(turn) for turn in previous_turns
@@ -299,7 +308,7 @@ class KnowledgeRetentionMetric(BaseConversationalMetric):
     def _calculate_score(self) -> float:
         number_of_verdicts = len(self.verdicts)
         if number_of_verdicts == 0:
-            return 0
+            return 1
 
         retention_count = 0
         for verdict in self.verdicts:
@@ -309,16 +318,6 @@ class KnowledgeRetentionMetric(BaseConversationalMetric):
         score = retention_count / number_of_verdicts
 
         return 0 if self.strict_mode and score < self.threshold else score
-
-    def is_successful(self) -> bool:
-        if self.error is not None:
-            self.success = False
-        else:
-            try:
-                self.success = self.score >= self.threshold
-            except TypeError:
-                self.success = False
-        return self.success
 
     @property
     def __name__(self):

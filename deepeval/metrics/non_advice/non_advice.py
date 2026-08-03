@@ -1,4 +1,4 @@
-from typing import List, Optional, Type, Union
+from typing import List, Optional, Union
 
 from deepeval.metrics import BaseMetric
 from deepeval.test_case import (
@@ -18,7 +18,6 @@ from deepeval.metrics.utils import (
     a_generate_with_schema_and_extract,
     generate_with_schema_and_extract,
 )
-from deepeval.metrics.non_advice.template import NonAdviceTemplate
 from deepeval.metrics.non_advice.schema import (
     NonAdviceVerdict,
     Verdicts,
@@ -36,13 +35,13 @@ class NonAdviceMetric(BaseMetric):
     def __init__(
         self,
         advice_types: List[str],  # Required parameter - no defaults
-        threshold: float = 0.5,
+        threshold: Optional[float] = 0.5,
         model: Optional[Union[str, DeepEvalBaseLLM]] = None,
         include_reason: bool = True,
         async_mode: bool = True,
         strict_mode: bool = False,
         verbose_mode: bool = False,
-        evaluation_template: Type[NonAdviceTemplate] = NonAdviceTemplate,
+        flaky: bool = False,
     ):
         if not advice_types or len(advice_types) == 0:
             raise ValueError(
@@ -59,7 +58,7 @@ class NonAdviceMetric(BaseMetric):
         self.async_mode = async_mode
         self.strict_mode = strict_mode
         self.verbose_mode = verbose_mode
-        self.evaluation_template = evaluation_template
+        self.flaky = flaky
 
     def measure(
         self,
@@ -80,6 +79,8 @@ class NonAdviceMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self, _show_indicator=_show_indicator, _in_component=_in_component
         ):
@@ -95,14 +96,15 @@ class NonAdviceMetric(BaseMetric):
                 )
             else:
                 self.advices: List[str] = self._generate_advices(
-                    test_case.actual_output
+                    test_case.actual_output,
+                    multimodal=test_case.multimodal,
                 )
-                self.verdicts: List[NonAdviceVerdict] = (
-                    self._generate_verdicts()
+                self.verdicts: List[NonAdviceVerdict] = self._generate_verdicts(
+                    multimodal=test_case.multimodal,
                 )
                 self.score = self._calculate_score()
                 self.reason = self._generate_reason()
-                self.success = self.score >= self.threshold
+                self.success = self.is_successful()
                 self.verbose_logs = construct_verbose_logs(
                     self,
                     steps=[
@@ -133,6 +135,8 @@ class NonAdviceMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self,
             async_mode=True,
@@ -140,14 +144,17 @@ class NonAdviceMetric(BaseMetric):
             _in_component=_in_component,
         ):
             self.advices: List[str] = await self._a_generate_advices(
-                test_case.actual_output
+                test_case.actual_output,
+                multimodal=test_case.multimodal,
             )
             self.verdicts: List[NonAdviceVerdict] = (
-                await self._a_generate_verdicts()
+                await self._a_generate_verdicts(
+                    multimodal=test_case.multimodal,
+                )
             )
             self.score = self._calculate_score()
             self.reason = await self._a_generate_reason()
-            self.success = self.score >= self.threshold
+            self.success = self.is_successful()
             self.verbose_logs = construct_verbose_logs(
                 self,
                 steps=[
@@ -168,7 +175,8 @@ class NonAdviceMetric(BaseMetric):
             if verdict.verdict.strip().lower() == "yes":
                 non_advice_violations.append(verdict.reason)
 
-        prompt: dict = self.evaluation_template.generate_reason(
+        prompt: dict = self._get_prompt(
+            "generate_reason",
             non_advice_violations=non_advice_violations,
             score=format(self.score, ".2f"),
         )
@@ -189,7 +197,8 @@ class NonAdviceMetric(BaseMetric):
             if verdict.verdict.strip().lower() == "yes":
                 non_advice_violations.append(verdict.reason)
 
-        prompt: dict = self.evaluation_template.generate_reason(
+        prompt: dict = self._get_prompt(
+            "generate_reason",
             non_advice_violations=non_advice_violations,
             score=format(self.score, ".2f"),
         )
@@ -201,12 +210,16 @@ class NonAdviceMetric(BaseMetric):
             extract_json=lambda data: data["reason"],
         )
 
-    async def _a_generate_verdicts(self) -> List[NonAdviceVerdict]:
+    async def _a_generate_verdicts(
+        self, *, multimodal: bool
+    ) -> List[NonAdviceVerdict]:
         if len(self.advices) == 0:
             return []
 
-        prompt = self.evaluation_template.generate_verdicts(
-            advices=self.advices
+        prompt = self._get_prompt(
+            "generate_verdicts",
+            multimodal=multimodal,
+            advices=self.advices,
         )
         return await a_generate_with_schema_and_extract(
             metric=self,
@@ -218,12 +231,14 @@ class NonAdviceMetric(BaseMetric):
             ],
         )
 
-    def _generate_verdicts(self) -> List[NonAdviceVerdict]:
+    def _generate_verdicts(self, *, multimodal: bool) -> List[NonAdviceVerdict]:
         if len(self.advices) == 0:
             return []
 
-        prompt = self.evaluation_template.generate_verdicts(
-            advices=self.advices
+        prompt = self._get_prompt(
+            "generate_verdicts",
+            multimodal=multimodal,
+            advices=self.advices,
         )
         return generate_with_schema_and_extract(
             metric=self,
@@ -235,9 +250,16 @@ class NonAdviceMetric(BaseMetric):
             ],
         )
 
-    async def _a_generate_advices(self, actual_output: str) -> List[str]:
-        prompt = self.evaluation_template.generate_advices(
-            actual_output=actual_output, advice_types=self.advice_types
+    async def _a_generate_advices(
+        self, actual_output: str, *, multimodal: bool
+    ) -> List[str]:
+        advice_types_str = ", ".join(self.advice_types)
+        prompt = self._get_prompt(
+            "generate_advices",
+            multimodal=multimodal,
+            actual_output=actual_output,
+            advice_types=self.advice_types,
+            advice_types_str=advice_types_str,
         )
         return await a_generate_with_schema_and_extract(
             metric=self,
@@ -247,9 +269,16 @@ class NonAdviceMetric(BaseMetric):
             extract_json=lambda data: data["advices"],
         )
 
-    def _generate_advices(self, actual_output: str) -> List[str]:
-        prompt = self.evaluation_template.generate_advices(
-            actual_output=actual_output, advice_types=self.advice_types
+    def _generate_advices(
+        self, actual_output: str, *, multimodal: bool
+    ) -> List[str]:
+        advice_types_str = ", ".join(self.advice_types)
+        prompt = self._get_prompt(
+            "generate_advices",
+            multimodal=multimodal,
+            actual_output=actual_output,
+            advice_types=self.advice_types,
+            advice_types_str=advice_types_str,
         )
         return generate_with_schema_and_extract(
             metric=self,
@@ -271,16 +300,6 @@ class NonAdviceMetric(BaseMetric):
 
         score = appropriate_advice_count / number_of_verdicts
         return 0 if self.strict_mode and score < self.threshold else score
-
-    def is_successful(self) -> bool:
-        if self.error is not None:
-            self.success = False
-        else:
-            try:
-                self.success = self.score >= self.threshold
-            except TypeError:
-                self.success = False
-        return self.success
 
     @property
     def __name__(self):

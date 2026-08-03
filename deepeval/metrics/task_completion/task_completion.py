@@ -1,10 +1,11 @@
 from typing import Optional, List, Tuple, Union, Dict
 
-from deepeval.utils import get_or_create_event_loop
+from deepeval.utils import get_or_create_event_loop, serialize_to_json
 from deepeval.metrics.utils import (
     construct_verbose_logs,
     check_llm_test_case_params,
     initialize_model,
+    print_tools_called,
     a_generate_with_schema_and_extract,
     generate_with_schema_and_extract,
 )
@@ -14,7 +15,6 @@ from deepeval.test_case import (
 )
 from deepeval.metrics import BaseMetric
 from deepeval.models import DeepEvalBaseLLM
-from deepeval.metrics.task_completion.template import TaskCompletionTemplate
 from deepeval.metrics.indicator import metric_progress_indicator
 from deepeval.metrics.task_completion.schema import (
     TaskAndOutcome,
@@ -31,13 +31,14 @@ class TaskCompletionMetric(BaseMetric):
 
     def __init__(
         self,
-        threshold: float = 0.5,
+        threshold: Optional[float] = 0.5,
         task: Optional[str] = None,
         model: Optional[Union[str, DeepEvalBaseLLM]] = None,
         include_reason: bool = True,
         async_mode: bool = True,
         strict_mode: bool = False,
         verbose_mode: bool = False,
+        flaky: bool = False,
     ):
         if task is None:
             self._is_task_provided = False
@@ -52,6 +53,7 @@ class TaskCompletionMetric(BaseMetric):
         self.async_mode = async_mode
         self.strict_mode = strict_mode
         self.verbose_mode = verbose_mode
+        self.flaky = flaky
         self.requires_trace = True
 
     def measure(
@@ -72,6 +74,8 @@ class TaskCompletionMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self, _show_indicator=_show_indicator, _in_component=_in_component
         ):
@@ -91,7 +95,7 @@ class TaskCompletionMetric(BaseMetric):
                     self.task = task
                 self.verdict, self.reason = self._generate_verdicts()
                 self.score = self._calculate_score()
-                self.success = self.score >= self.threshold
+                self.success = self.is_successful()
                 self.verbose_logs = construct_verbose_logs(
                     self,
                     steps=[
@@ -121,6 +125,8 @@ class TaskCompletionMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self,
             async_mode=True,
@@ -134,7 +140,7 @@ class TaskCompletionMetric(BaseMetric):
                 self.task = task
             self.verdict, self.reason = await self._a_generate_verdicts()
             self.score = self._calculate_score()
-            self.success = self.score >= self.threshold
+            self.success = self.is_successful()
             self.verbose_logs = construct_verbose_logs(
                 self,
                 steps=[
@@ -147,7 +153,8 @@ class TaskCompletionMetric(BaseMetric):
             return self.score
 
     async def _a_generate_verdicts(self) -> Tuple:
-        prompt = TaskCompletionTemplate.generate_verdict(
+        prompt = self._get_prompt(
+            "generate_verdict",
             task=self.task,
             actual_outcome=self.outcome,
         )
@@ -160,7 +167,8 @@ class TaskCompletionMetric(BaseMetric):
         )
 
     def _generate_verdicts(self) -> Tuple:
-        prompt = TaskCompletionTemplate.generate_verdict(
+        prompt = self._get_prompt(
+            "generate_verdict",
             task=self.task,
             actual_outcome=self.outcome,
         )
@@ -178,15 +186,19 @@ class TaskCompletionMetric(BaseMetric):
     ) -> Tuple:
         has_trace: bool = isinstance(test_case._trace_dict, Dict)
         if has_trace:
-            prompt = TaskCompletionTemplate.extract_task_and_outcome_from_trace(
-                trace=test_case._trace_dict
+            prompt = self._get_prompt(
+                "extract_task_and_outcome_from_trace",
+                trace_json=serialize_to_json(test_case._trace_dict, indent=2),
             )
         else:
             # TODO: Deprecate this soon
-            prompt = TaskCompletionTemplate.extract_goal_and_outcome(
+            prompt = self._get_prompt(
+                "extract_goal_and_outcome",
                 input=test_case.input,
                 actual_output=test_case.actual_output,
-                tools_called=test_case.tools_called,
+                tools_called_formatted=print_tools_called(
+                    test_case.tools_called
+                ),
             )
         return await a_generate_with_schema_and_extract(
             metric=self,
@@ -202,15 +214,19 @@ class TaskCompletionMetric(BaseMetric):
     ) -> Tuple:
         has_trace: bool = isinstance(test_case._trace_dict, Dict)
         if has_trace:
-            prompt = TaskCompletionTemplate.extract_task_and_outcome_from_trace(
-                trace=test_case._trace_dict
+            prompt = self._get_prompt(
+                "extract_task_and_outcome_from_trace",
+                trace_json=serialize_to_json(test_case._trace_dict, indent=2),
             )
         else:
             # TODO: Deprecate this soon
-            prompt = TaskCompletionTemplate.extract_goal_and_outcome(
+            prompt = self._get_prompt(
+                "extract_goal_and_outcome",
                 input=test_case.input,
                 actual_output=test_case.actual_output,
-                tools_called=test_case.tools_called,
+                tools_called_formatted=print_tools_called(
+                    test_case.tools_called
+                ),
             )
         return generate_with_schema_and_extract(
             metric=self,
@@ -226,16 +242,6 @@ class TaskCompletionMetric(BaseMetric):
             if self.strict_mode and self.verdict < self.threshold
             else self.verdict
         )
-
-    def is_successful(self) -> bool:
-        if self.error is not None:
-            self.success = False
-        else:
-            try:
-                self.success = self.score >= self.threshold
-            except TypeError:
-                self.success = False
-        return self.success
 
     @property
     def __name__(self):

@@ -5,9 +5,6 @@ import textwrap
 
 from deepeval.metrics import BaseMetric
 from deepeval.test_case import SingleTurnParams, LLMTestCase, MLLMImage
-from deepeval.metrics.multimodal_metrics.image_editing.template import (
-    ImageEditingTemplate,
-)
 from deepeval.utils import (
     get_or_create_event_loop,
     convert_to_multi_modal_array,
@@ -34,10 +31,11 @@ class ImageEditingMetric(BaseMetric):
     def __init__(
         self,
         model: Optional[Union[str, DeepEvalBaseLLM]] = None,
-        threshold: float = 0.5,
+        threshold: Optional[float] = 0.5,
         async_mode: bool = True,
         strict_mode: bool = False,
         verbose_mode: bool = False,
+        flaky: bool = False,
     ):
         self.model, self.using_native_model = initialize_model(model)
         self.evaluation_model = self.model.get_model_name()
@@ -45,6 +43,7 @@ class ImageEditingMetric(BaseMetric):
         self.strict_mode = strict_mode
         self.async_mode = async_mode
         self.verbose_mode = verbose_mode
+        self.flaky = flaky
 
     def measure(
         self,
@@ -64,6 +63,8 @@ class ImageEditingMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self, _show_indicator=_show_indicator, _in_component=_in_component
         ):
@@ -104,7 +105,7 @@ class ImageEditingMetric(BaseMetric):
                     else self.score
                 )
                 self.reason = self._generate_reason()
-                self.success = self.score >= self.threshold
+                self.success = self.is_successful()
                 self.verbose_logs = construct_verbose_logs(
                     self,
                     steps=[
@@ -135,6 +136,8 @@ class ImageEditingMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self,
             async_mode=True,
@@ -165,7 +168,7 @@ class ImageEditingMetric(BaseMetric):
                 else self.score
             )
             self.reason = self._generate_reason()
-            self.success = self.score >= self.threshold
+            self.success = self.is_successful()
             self.verbose_logs = construct_verbose_logs(
                 self,
                 steps=[
@@ -199,8 +202,9 @@ class ImageEditingMetric(BaseMetric):
         images: List[MLLMImage] = []
         images.extend([image_input, actual_image_output])
         prompt = [
-            ImageEditingTemplate.generate_semantic_consistency_evaluation_results(
-                text_prompt=text_prompt
+            self._get_prompt(
+                "generate_semantic_consistency_evaluation_results",
+                text_prompt=text_prompt,
             )
         ]
         return await a_generate_with_schema_and_extract(
@@ -220,8 +224,9 @@ class ImageEditingMetric(BaseMetric):
         images: List[MLLMImage] = []
         images.extend([image_input, actual_image_output])
         prompt = [
-            ImageEditingTemplate.generate_semantic_consistency_evaluation_results(
-                text_prompt=text_prompt
+            self._get_prompt(
+                "generate_semantic_consistency_evaluation_results",
+                text_prompt=text_prompt,
             )
         ]
         return generate_with_schema_and_extract(
@@ -237,7 +242,9 @@ class ImageEditingMetric(BaseMetric):
     ) -> Tuple[List[int], str]:
         images: List[MLLMImage] = [actual_image_output]
         prompt = [
-            ImageEditingTemplate.generate_perceptual_quality_evaluation_results()
+            self._get_prompt(
+                "generate_perceptual_quality_evaluation_results",
+            )
         ]
         return await a_generate_with_schema_and_extract(
             metric=self,
@@ -252,7 +259,9 @@ class ImageEditingMetric(BaseMetric):
     ) -> Tuple[List[int], str]:
         images: List[MLLMImage] = [actual_image_output]
         prompt = [
-            ImageEditingTemplate.generate_perceptual_quality_evaluation_results()
+            self._get_prompt(
+                "generate_perceptual_quality_evaluation_results",
+            )
         ]
         return generate_with_schema_and_extract(
             metric=self,
@@ -266,16 +275,6 @@ class ImageEditingMetric(BaseMetric):
         min_SC_score = min(self.SC_scores)
         min_PQ_score = min(self.PQ_scores)
         return math.sqrt(min_SC_score * min_PQ_score) / 10
-
-    def is_successful(self) -> bool:
-        if self.error is not None:
-            self.success = False
-        else:
-            try:
-                self.success = self.score >= self.threshold
-            except TypeError:
-                self.success = False
-        return self.success
 
     def _generate_reason(
         self,

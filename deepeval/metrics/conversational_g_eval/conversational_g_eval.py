@@ -1,11 +1,12 @@
 """A slightly modified tailored version of the LLM evaluated metric based on the GEval framework: https://arxiv.org/pdf/2303.16634.pdf"""
 
 from openai.types.chat.chat_completion import ChatCompletion
-from typing import Optional, List, Tuple, Union, Dict, Type
+from typing import Optional, List, Tuple, Union, Dict
 from rich.console import Console
 import math
 from deepeval.metrics import BaseConversationalMetric
 from deepeval.metrics.g_eval.utils import (
+    MetricPullResponse,
     Rubric,
     construct_conversational_g_eval_turn_params_string,
     construct_non_turns_test_case_string,
@@ -15,13 +16,12 @@ from deepeval.metrics.g_eval.utils import (
     validate_criteria_and_evaluation_steps,
     CONVERSATIONAL_G_EVAL_API_PARAMS,
     construct_geval_upload_payload,
+    construct_geval_pull_evaluation_params,
+    ensure_required_params,
 )
 from deepeval.test_case import (
     MultiTurnParams,
     ConversationalTestCase,
-)
-from deepeval.metrics.conversational_g_eval.template import (
-    ConversationalGEvalTemplate,
 )
 from deepeval.utils import get_or_create_event_loop, prettify_list
 from deepeval.metrics.utils import (
@@ -32,19 +32,12 @@ from deepeval.metrics.utils import (
     convert_turn_to_dict,
     a_generate_with_schema_and_extract,
     generate_with_schema_and_extract,
+    accrue_token_usage,
 )
 from deepeval.models import DeepEvalBaseLLM
 from deepeval.metrics.indicator import metric_progress_indicator
 import deepeval.metrics.conversational_g_eval.schema as cgschema
 from deepeval.confident.api import Api, Endpoints, HttpMethods
-
-
-def _debug_print_prompt(label: str, prompt: str) -> None:
-    """Debug helper: dump a built prompt to stdout. Remove or gate when no longer needed."""
-    bar = "=" * 80
-    print(f"\n{bar}\n[ConversationalGEval prompt] {label}\n{bar}")
-    print(prompt)
-    print(f"{bar}\n", flush=True)
 
 
 class ConversationalGEval(BaseConversationalMetric):
@@ -55,32 +48,29 @@ class ConversationalGEval(BaseConversationalMetric):
         criteria: Optional[str] = None,
         evaluation_steps: Optional[List[str]] = None,
         model: Optional[Union[str, DeepEvalBaseLLM]] = None,
-        threshold: float = 0.5,
+        threshold: Optional[float] = 0.5,
         top_logprobs: int = 20,
         rubric: Optional[List[Rubric]] = None,
         async_mode: bool = True,
         strict_mode: bool = False,
         verbose_mode: bool = False,
-        evaluation_template: Type[
-            ConversationalGEvalTemplate
-        ] = ConversationalGEvalTemplate,
         _include_g_eval_suffix: bool = True,
+        flaky: bool = False,
     ):
         if evaluation_params is not None and len(evaluation_params) == 0:
             raise ValueError("evaluation_params cannot be an empty list.")
 
         self.name = name
-        if evaluation_params is None:
-            evaluation_params = [MultiTurnParams.CONTENT, MultiTurnParams.ROLE]
-
-        if MultiTurnParams.CONTENT not in evaluation_params:
-            evaluation_params.append(MultiTurnParams.CONTENT)
-        if MultiTurnParams.ROLE not in evaluation_params:
-            evaluation_params.append(MultiTurnParams.ROLE)
+        if evaluation_params is not None:
+            if MultiTurnParams.CONTENT not in evaluation_params:
+                evaluation_params.append(MultiTurnParams.CONTENT)
+            if MultiTurnParams.ROLE not in evaluation_params:
+                evaluation_params.append(MultiTurnParams.ROLE)
 
         self.evaluation_params = evaluation_params
 
-        validate_criteria_and_evaluation_steps(criteria, evaluation_steps)
+        if criteria is not None or evaluation_steps is not None:
+            validate_criteria_and_evaluation_steps(criteria, evaluation_steps)
         self.criteria = criteria
         self.rubric = validate_and_sort_rubrics(rubric)
         self.model, self.using_native_model = initialize_model(model)
@@ -95,7 +85,7 @@ class ConversationalGEval(BaseConversationalMetric):
         self.strict_mode = strict_mode
         self.async_mode = async_mode
         self.verbose_mode = verbose_mode
-        self.evaluation_template = evaluation_template
+        self.flaky = flaky
         self._include_g_eval_suffix = _include_g_eval_suffix
 
     def measure(
@@ -105,6 +95,9 @@ class ConversationalGEval(BaseConversationalMetric):
         _in_component: bool = False,
         _log_metric_to_confident: bool = True,
     ) -> float:
+        ensure_required_params(
+            self.evaluation_params, self.criteria, self.evaluation_steps
+        )
         multimodal = test_case.multimodal
         check_conversational_test_case_params(
             test_case,
@@ -116,6 +109,8 @@ class ConversationalGEval(BaseConversationalMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self, _show_indicator=_show_indicator, _in_component=_in_component
         ):
@@ -141,7 +136,7 @@ class ConversationalGEval(BaseConversationalMetric):
                     if self.strict_mode and self.score < self.threshold
                     else self.score
                 )
-                self.success = self.score >= self.threshold
+                self.success = self.is_successful()
                 self.verbose_logs = construct_verbose_logs(
                     self,
                     steps=[
@@ -161,6 +156,9 @@ class ConversationalGEval(BaseConversationalMetric):
         _in_component: bool = False,
         _log_metric_to_confident: bool = True,
     ) -> float:
+        ensure_required_params(
+            self.evaluation_params, self.criteria, self.evaluation_steps
+        )
         multimodal = test_case.multimodal
         check_conversational_test_case_params(
             test_case,
@@ -172,6 +170,8 @@ class ConversationalGEval(BaseConversationalMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self,
             async_mode=True,
@@ -189,7 +189,7 @@ class ConversationalGEval(BaseConversationalMetric):
                 if self.strict_mode and self.score < self.threshold
                 else self.score
             )
-            self.success = self.score >= self.threshold
+            self.success = self.is_successful()
             self.verbose_logs = construct_verbose_logs(
                 self,
                 steps=[
@@ -209,11 +209,10 @@ class ConversationalGEval(BaseConversationalMetric):
         g_eval_params_str = construct_conversational_g_eval_turn_params_string(
             self.evaluation_params
         )
-        prompt = self.evaluation_template.generate_evaluation_steps(
-            criteria=self.criteria, parameters=g_eval_params_str
-        )
-        _debug_print_prompt(
-            f"{self.__name__} :: generate_evaluation_steps (async)", prompt
+        prompt = self._get_prompt(
+            "generate_evaluation_steps",
+            criteria=self.criteria,
+            parameters=g_eval_params_str,
         )
         return await a_generate_with_schema_and_extract(
             metric=self,
@@ -230,11 +229,10 @@ class ConversationalGEval(BaseConversationalMetric):
         g_eval_params_str = construct_conversational_g_eval_turn_params_string(
             self.evaluation_params
         )
-        prompt = self.evaluation_template.generate_evaluation_steps(
-            criteria=self.criteria, parameters=g_eval_params_str
-        )
-        _debug_print_prompt(
-            f"{self.__name__} :: generate_evaluation_steps (sync)", prompt
+        prompt = self._get_prompt(
+            "generate_evaluation_steps",
+            criteria=self.criteria,
+            parameters=g_eval_params_str,
         )
         return generate_with_schema_and_extract(
             metric=self,
@@ -253,30 +251,17 @@ class ConversationalGEval(BaseConversationalMetric):
         g_eval_params_str = construct_conversational_g_eval_turn_params_string(
             self.evaluation_params
         )
-        if not self.strict_mode:
-            rubric_str = format_rubrics(self.rubric) if self.rubric else None
-            prompt = self.evaluation_template.generate_evaluation_results(
-                evaluation_steps=self.number_evaluation_steps(),
-                test_case_content=test_case_content,
-                turns=[
-                    convert_turn_to_dict(turn, self.evaluation_params)
-                    for turn in test_case.turns
-                ],
-                parameters=g_eval_params_str,
-                rubric=rubric_str,
-            )
-        else:
-            prompt = self.evaluation_template.generate_evaluation_results(
-                evaluation_steps=self.number_evaluation_steps(),
-                test_case_content=test_case_content,
-                turns=[
-                    convert_turn_to_dict(turn, self.evaluation_params)
-                    for turn in test_case.turns
-                ],
-                parameters=g_eval_params_str,
-            )
-        _debug_print_prompt(
-            f"{self.__name__} :: generate_evaluation_results (async)", prompt
+        rubric_str = format_rubrics(self.rubric) if self.rubric else None
+        prompt = self._get_prompt(
+            "generate_evaluation_results",
+            evaluation_steps=self.number_evaluation_steps(),
+            test_case_content=test_case_content,
+            turns=[
+                convert_turn_to_dict(turn, self.evaluation_params)
+                for turn in test_case.turns
+            ],
+            parameters=g_eval_params_str,
+            rubric=rubric_str,
         )
         try:
             if no_log_prob_support(self.model):
@@ -287,6 +272,7 @@ class ConversationalGEval(BaseConversationalMetric):
             )
 
             self._accrue_cost(cost)
+            accrue_token_usage(self, cost)
             data = trimAndLoadJson(res.choices[0].message.content, self)
 
             reason = data["reason"]
@@ -321,30 +307,17 @@ class ConversationalGEval(BaseConversationalMetric):
         g_eval_params_str = construct_conversational_g_eval_turn_params_string(
             self.evaluation_params
         )
-        if not self.strict_mode:
-            rubric_str = format_rubrics(self.rubric) if self.rubric else None
-            prompt = self.evaluation_template.generate_evaluation_results(
-                evaluation_steps=self.number_evaluation_steps(),
-                test_case_content=test_case_content,
-                turns=[
-                    convert_turn_to_dict(turn, self.evaluation_params)
-                    for turn in test_case.turns
-                ],
-                parameters=g_eval_params_str,
-                rubric=rubric_str,
-            )
-        else:
-            prompt = self.evaluation_template.generate_evaluation_results(
-                evaluation_steps=self.number_evaluation_steps(),
-                test_case_content=test_case_content,
-                turns=[
-                    convert_turn_to_dict(turn, self.evaluation_params)
-                    for turn in test_case.turns
-                ],
-                parameters=g_eval_params_str,
-            )
-        _debug_print_prompt(
-            f"{self.__name__} :: generate_evaluation_results (sync)", prompt
+        rubric_str = format_rubrics(self.rubric) if self.rubric else None
+        prompt = self._get_prompt(
+            "generate_evaluation_results",
+            evaluation_steps=self.number_evaluation_steps(),
+            test_case_content=test_case_content,
+            turns=[
+                convert_turn_to_dict(turn, self.evaluation_params)
+                for turn in test_case.turns
+            ],
+            parameters=g_eval_params_str,
+            rubric=rubric_str,
         )
         try:
             if no_log_prob_support(self.model):
@@ -354,6 +327,7 @@ class ConversationalGEval(BaseConversationalMetric):
                 prompt, top_logprobs=self.top_logprobs
             )
             self._accrue_cost(cost)
+            accrue_token_usage(self, cost)
             data = trimAndLoadJson(res.choices[0].message.content, self)
 
             reason = data["reason"]
@@ -426,17 +400,13 @@ class ConversationalGEval(BaseConversationalMetric):
             evaluation_steps += f"{index}. {string}\n"
         return evaluation_steps
 
-    def is_successful(self) -> bool:
-        if self.error is not None:
-            self.success = False
-        else:
-            try:
-                self.success = self.score >= self.threshold
-            except TypeError:
-                self.success = False
-        return self.success
-
     def upload(self):
+        ensure_required_params(
+            self.evaluation_params,
+            self.criteria,
+            self.evaluation_steps,
+            operation="upload",
+        )
         api = Api()
 
         payload = construct_geval_upload_payload(
@@ -463,6 +433,49 @@ class ConversationalGEval(BaseConversationalMetric):
             console.print(
                 "[rgb(5,245,141)]✓[/rgb(5,245,141)] Metric uploaded successfully "
                 f"(id: [bold]{metric_id}[/bold])"
+            )
+
+        return data
+
+    def pull(self):
+        api = Api()
+        data, _ = api.send_request(
+            method=HttpMethods.GET,
+            endpoint=Endpoints.METRIC_ENDPOINT,
+            url_params={"name": self.name},
+        )
+
+        data = MetricPullResponse.model_validate(data)
+
+        self.criteria = data.criteria
+        self.evaluation_steps = data.evaluationSteps
+
+        self.evaluation_params = construct_geval_pull_evaluation_params(
+            data.requiredParameters, multi_turn=True
+        )
+
+        self.rubric = validate_and_sort_rubrics(
+            [
+                Rubric(
+                    score_range=r.scoreRange,
+                    expected_outcome=r.expectedOutcome,
+                )
+                for r in data.rubric
+            ]
+            if data.rubric
+            else None
+        )
+
+        ensure_required_params(
+            self.evaluation_params, self.criteria, self.evaluation_steps
+        )
+
+        metric_id = data.id
+        self.metric_id = metric_id
+        console = Console()
+        if metric_id:
+            console.print(
+                f"[rgb(5,245,141)]✓[/rgb(5,245,141)] Metric '{self.name}' [Conversational GEval] pulled successfully"
             )
 
         return data

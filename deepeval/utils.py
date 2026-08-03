@@ -189,6 +189,23 @@ def serialize(obj) -> Union[str, None]:
     return json.dumps(serialize_dict_with_sorting(obj), sort_keys=True)
 
 
+def serialize_to_json(obj: Any, **kwargs) -> str:
+    """Safely serialize an arbitrary object to a JSON string.
+
+    Pre-converts ``obj`` via ``make_json_serializable`` so nested pydantic
+    models, non-finite floats (NaN/Infinity), circular references, and
+    non-string dict keys are all handled. Prefer this over a bare
+    ``json.dumps`` for any agent/trace/tool/test-case derived data, where a
+    raw ``json.dumps`` would raise ``TypeError`` or emit invalid JSON.
+
+    Extra keyword arguments (e.g. ``indent``, ``ensure_ascii``) are
+    forwarded to ``json.dumps``.
+    """
+    from deepeval.tracing.utils import make_json_serializable
+
+    return json.dumps(make_json_serializable(obj), **kwargs)
+
+
 def get_or_create_event_loop() -> asyncio.AbstractEventLoop:
     try:
         loop = asyncio.get_event_loop()
@@ -254,6 +271,21 @@ def set_identifier(identifier: Optional[str]):
 
 def get_identifier() -> Optional[str]:
     return get_settings().DEEPEVAL_IDENTIFIER
+
+
+# Whether the next test run should be marked as the official baseline on
+# Confident AI. Read in the main process at upload time (TestRunManager.
+# wrap_up_test_run), so a plain module global is sufficient.
+_test_run_official: bool = False
+
+
+def set_test_run_official(official: bool):
+    global _test_run_official
+    _test_run_official = bool(official)
+
+
+def get_test_run_official() -> bool:
+    return _test_run_official
 
 
 def should_use_cache() -> bool:
@@ -576,7 +608,7 @@ def convert_to_multi_modal_array(input: Union[str, List[str]]):
 
 
 def check_if_multimodal(input: str):
-    pattern = r"\[DEEPEVAL:IMAGE:(.*?)\]"
+    pattern = r"\[DEEPEVAL:(?:IMAGE|PDF):(.*?)\]"
     matches = list(re.finditer(pattern, input))
     return bool(matches)
 
@@ -631,7 +663,10 @@ def format_turn(
     if rctx:
         show = rctx[:max_context_items]
         for i, item in enumerate(show):
-            lines.append(f"{indent}↳ ctx[{i}]: {shorten(item, context_length)}")
+            item_str = item.context if hasattr(item, "context") else item
+            lines.append(
+                f"{indent}↳ ctx[{i}]: {shorten(item_str, context_length)}"
+            )
         hidden = max(0, len(rctx) - len(show))
         if hidden:
             lines.append(f"{indent}↳ ctx: (+{hidden} more)")

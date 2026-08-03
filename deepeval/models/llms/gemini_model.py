@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Optional, Dict, List, Union, Tuple
 from deepeval.errors import DeepEvalError
 from deepeval.test_case import MLLMImage
 from deepeval.config.settings import get_settings
-from deepeval.models.utils import require_secret_api_key
+from deepeval.models.utils import require_secret_api_key, EvaluationCost
 from deepeval.models.retry_policy import (
     create_retry_decorator,
 )
@@ -67,6 +67,8 @@ class GeminiModel(DeepEvalBaseLLM):
         service_account_key: Optional[Union[str, Dict[str, str]]] = None,
         use_vertexai: Optional[bool] = None,
         generation_kwargs: Optional[Dict] = None,
+        cost_per_input_token: Optional[float] = None,
+        cost_per_output_token: Optional[float] = None,
         **kwargs,
     ):
 
@@ -74,6 +76,17 @@ class GeminiModel(DeepEvalBaseLLM):
 
         model = model or settings.GEMINI_MODEL_NAME or default_gemini_model
         self.model_data = GEMINI_MODELS_DATA.get(model)
+
+        cost_per_input_token = (
+            cost_per_input_token
+            if cost_per_input_token is not None
+            else settings.GEMINI_COST_PER_INPUT_TOKEN
+        )
+        cost_per_output_token = (
+            cost_per_output_token
+            if cost_per_output_token is not None
+            else settings.GEMINI_COST_PER_OUTPUT_TOKEN
+        )
 
         # Get API key from settings if not provided
         if api_key is not None:
@@ -124,6 +137,17 @@ class GeminiModel(DeepEvalBaseLLM):
 
         self.generation_kwargs = dict(generation_kwargs or {})
         self.generation_kwargs.pop("temperature", None)
+
+        self.model_data.input_price = (
+            cost_per_input_token
+            if cost_per_input_token is not None
+            else self.model_data.input_price
+        )
+        self.model_data.output_price = (
+            cost_per_output_token
+            if cost_per_output_token is not None
+            else self.model_data.output_price
+        )
 
         self._module = self._require_module()
         # Configure default model generation settings
@@ -253,7 +277,7 @@ class GeminiModel(DeepEvalBaseLLM):
                     **self.generation_kwargs,
                 ),
             )
-            return response.parsed, 0
+            return response.parsed, self._token_cost(response)
         else:
             response = client.models.generate_content(
                 model=self.name,
@@ -264,7 +288,7 @@ class GeminiModel(DeepEvalBaseLLM):
                     **self.generation_kwargs,
                 ),
             )
-            return response.text, 0
+            return response.text, self._token_cost(response)
 
     @retry_gemini
     async def a_generate(
@@ -297,7 +321,7 @@ class GeminiModel(DeepEvalBaseLLM):
                     **self.generation_kwargs,
                 ),
             )
-            return response.parsed, 0
+            return response.parsed, self._token_cost(response)
         else:
             response = await client.aio.models.generate_content(
                 model=self.name,
@@ -308,7 +332,31 @@ class GeminiModel(DeepEvalBaseLLM):
                     **self.generation_kwargs,
                 ),
             )
-            return response.text, 0
+            return response.text, self._token_cost(response)
+
+    ###############################################
+    # Utilities
+    ###############################################
+
+    def calculate_cost(
+        self, input_tokens: int, output_tokens: int
+    ) -> Optional[EvaluationCost]:
+        if self.model_data.input_price and self.model_data.output_price:
+            input_cost = input_tokens * self.model_data.input_price
+            output_cost = output_tokens * self.model_data.output_price
+            return EvaluationCost(
+                input_cost + output_cost, input_tokens, output_tokens
+            )
+
+    def _token_cost(self, response) -> EvaluationCost:
+        usage = getattr(response, "usage_metadata", None)
+        input_tokens = getattr(usage, "prompt_token_count", None)
+        output_tokens = getattr(usage, "candidates_token_count", None)
+        if input_tokens is not None and output_tokens is not None:
+            cost = self.calculate_cost(input_tokens, output_tokens)
+            if cost is not None:
+                return cost
+        return EvaluationCost(None, input_tokens, output_tokens)
 
     #########################
     # Capabilities          #

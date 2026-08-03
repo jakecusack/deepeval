@@ -50,7 +50,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2WBKD0yU7Ty01zu3FFiBIAKFrxD",
               "service_tier": "default",
@@ -101,7 +101,7 @@
             }
           },
           {
-            "content": "Sunny, 72\u00b0F",
+            "content": "Sunny, 72°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -111,7 +111,7 @@
             "status": "success"
           },
           {
-            "content": "Cloudy, 58\u00b0F",
+            "content": "Cloudy, 58°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -121,7 +121,7 @@
             "status": "success"
           },
           {
-            "content": "Rainy, 52\u00b0F",
+            "content": "Rainy, 52°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -131,7 +131,7 @@
             "status": "success"
           },
           {
-            "content": "Here are the current conditions:\n\n- Tokyo: Sunny, 72\u00b0F\n- New York: Cloudy, 58\u00b0F\n- London: Rainy, 52\u00b0F",
+            "content": "Here are the current conditions:\n\n- Tokyo: Sunny, 72°F\n- New York: Cloudy, 58°F\n- London: Rainy, 52°F",
             "additional_kwargs": {
               "refusal": null
             },
@@ -152,7 +152,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2WFSvMELJQAeJCWWf8SdO1AxYHT",
               "service_tier": "default",
@@ -178,7 +178,8 @@
             }
           }
         ]
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-dbe8-7d13-8295-b6a370917dd8",
@@ -219,7 +220,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2WBKD0yU7Ty01zu3FFiBIAKFrxD",
               "service_tier": "default",
@@ -270,7 +271,7 @@
             }
           },
           {
-            "content": "Sunny, 72\u00b0F",
+            "content": "Sunny, 72°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -280,7 +281,7 @@
             "status": "success"
           },
           {
-            "content": "Cloudy, 58\u00b0F",
+            "content": "Cloudy, 58°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -290,7 +291,7 @@
             "status": "success"
           },
           {
-            "content": "Rainy, 52\u00b0F",
+            "content": "Rainy, 52°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -304,7 +305,7 @@
       "output": {
         "messages": [
           {
-            "content": "Here are the current conditions:\n\n- Tokyo: Sunny, 72\u00b0F\n- New York: Cloudy, 58\u00b0F\n- London: Rainy, 52\u00b0F",
+            "content": "Here are the current conditions:\n\n- Tokyo: Sunny, 72°F\n- New York: Cloudy, 58°F\n- London: Rainy, 52°F",
             "additional_kwargs": {
               "refusal": null
             },
@@ -325,7 +326,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2WFSvMELJQAeJCWWf8SdO1AxYHT",
               "service_tier": "default",
@@ -351,7 +352,8 @@
             }
           }
         ]
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-e02b-7c83-be3b-88a388358dee",
@@ -392,7 +394,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2WBKD0yU7Ty01zu3FFiBIAKFrxD",
               "service_tier": "default",
@@ -443,7 +445,7 @@
             }
           },
           {
-            "content": "Sunny, 72\u00b0F",
+            "content": "Sunny, 72°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -453,7 +455,7 @@
             "status": "success"
           },
           {
-            "content": "Cloudy, 58\u00b0F",
+            "content": "Cloudy, 58°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -463,7 +465,7 @@
             "status": "success"
           },
           {
-            "content": "Rainy, 52\u00b0F",
+            "content": "Rainy, 52°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -473,7 +475,7 @@
             "status": "success"
           },
           {
-            "content": "Here are the current conditions:\n\n- Tokyo: Sunny, 72\u00b0F\n- New York: Cloudy, 58\u00b0F\n- London: Rainy, 52\u00b0F",
+            "content": "Here are the current conditions:\n\n- Tokyo: Sunny, 72°F\n- New York: Cloudy, 58°F\n- London: Rainy, 52°F",
             "additional_kwargs": {
               "refusal": null
             },
@@ -494,7 +496,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2WFSvMELJQAeJCWWf8SdO1AxYHT",
               "service_tier": "default",
@@ -521,7 +523,8 @@
           }
         ]
       },
-      "output": "__end__"
+      "output": "__end__",
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-dbe4-7162-aea6-9febfda4ab2f",
@@ -562,7 +565,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2WBKD0yU7Ty01zu3FFiBIAKFrxD",
               "service_tier": "default",
@@ -617,7 +620,7 @@
       "output": {
         "messages": [
           {
-            "content": "Sunny, 72\u00b0F",
+            "content": "Sunny, 72°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -627,7 +630,7 @@
             "status": "success"
           },
           {
-            "content": "Cloudy, 58\u00b0F",
+            "content": "Cloudy, 58°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -637,7 +640,7 @@
             "status": "success"
           },
           {
-            "content": "Rainy, 52\u00b0F",
+            "content": "Rainy, 52°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -651,8 +654,9 @@
       "toolsCalled": [
         {
           "name": "get_weather",
+          "type": "FUNCTION",
           "output": {
-            "content": "Sunny, 72\u00b0F",
+            "content": "Sunny, 72°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -667,8 +671,9 @@
         },
         {
           "name": "get_weather",
+          "type": "FUNCTION",
           "output": {
-            "content": "Cloudy, 58\u00b0F",
+            "content": "Cloudy, 58°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -683,8 +688,9 @@
         },
         {
           "name": "get_weather",
+          "type": "FUNCTION",
           "output": {
-            "content": "Rainy, 52\u00b0F",
+            "content": "Rainy, 52°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -697,7 +703,8 @@
             "city": "London"
           }
         }
-      ]
+      ],
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-cf15-7c22-9bf6-ef5388bf249f",
@@ -742,7 +749,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2WBKD0yU7Ty01zu3FFiBIAKFrxD",
               "service_tier": "default",
@@ -793,7 +800,8 @@
             }
           }
         ]
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-dbe3-7300-8325-23cc6401b42d",
@@ -834,7 +842,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2WBKD0yU7Ty01zu3FFiBIAKFrxD",
               "service_tier": "default",
@@ -886,7 +894,8 @@
           }
         ]
       },
-      "output": "tools"
+      "output": "tools",
+      "integration": "LangChain"
     }
   ],
   "agentSpans": [],
@@ -914,15 +923,15 @@
         },
         {
           "role": "tool",
-          "content": "Sunny, 72\u00b0F"
+          "content": "Sunny, 72°F"
         },
         {
           "role": "tool",
-          "content": "Cloudy, 58\u00b0F"
+          "content": "Cloudy, 58°F"
         },
         {
           "role": "tool",
-          "content": "Rainy, 52\u00b0F"
+          "content": "Rainy, 52°F"
         },
         {
           "role": "Tool Input",
@@ -947,12 +956,14 @@
       ],
       "output": {
         "role": "AI",
-        "content": "Here are the current conditions:\n\n- Tokyo: Sunny, 72\u00b0F\n- New York: Cloudy, 58\u00b0F\n- London: Rainy, 52\u00b0F",
+        "content": "Here are the current conditions:\n\n- Tokyo: Sunny, 72°F\n- New York: Cloudy, 58°F\n- London: Rainy, 52°F",
         "tool_calls": []
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 372.0,
-      "outputTokenCount": 38.0
+      "outputTokenCount": 38.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     },
     {
       "uuid": "019d0517-cf15-7c22-9bf6-ef617e80c6e0",
@@ -1019,9 +1030,11 @@
           }
         ]
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 274.0,
-      "outputTokenCount": 132.0
+      "outputTokenCount": 132.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     }
   ],
   "retrieverSpans": [],
@@ -1038,7 +1051,7 @@
         "city": "London"
       },
       "output": {
-        "content": "Rainy, 52\u00b0F",
+        "content": "Rainy, 52°F",
         "additional_kwargs": {},
         "response_metadata": {},
         "type": "tool",
@@ -1046,7 +1059,8 @@
         "id": "c9c090ec-f972-4238-b556-681b8e07a359",
         "tool_call_id": "call_ZkmiryKGgNzcTgRcuTLlwtqt",
         "status": "success"
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-dbe6-75c0-8af1-a607a75c63bb",
@@ -1060,7 +1074,7 @@
         "city": "New York"
       },
       "output": {
-        "content": "Cloudy, 58\u00b0F",
+        "content": "Cloudy, 58°F",
         "additional_kwargs": {},
         "response_metadata": {},
         "type": "tool",
@@ -1068,7 +1082,8 @@
         "id": "f6db14ed-085a-42d1-9bee-bd4e6cb8f76f",
         "tool_call_id": "call_odMFWBD1CscqpgIxkjdxsQPR",
         "status": "success"
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-dbe5-7a91-aee2-c5789c3be5f5",
@@ -1082,7 +1097,7 @@
         "city": "Tokyo"
       },
       "output": {
-        "content": "Sunny, 72\u00b0F",
+        "content": "Sunny, 72°F",
         "additional_kwargs": {},
         "response_metadata": {},
         "type": "tool",
@@ -1090,7 +1105,8 @@
         "id": "a909306b-4132-4ffa-bccb-b4bf7f096318",
         "tool_call_id": "call_hhiczYSdCYDU7f1BwOBNvg54",
         "status": "success"
-      }
+      },
+      "integration": "LangChain"
     }
   ],
   "startTime": "2026-03-19T07:55:39.668Z",
@@ -1147,7 +1163,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2WBKD0yU7Ty01zu3FFiBIAKFrxD",
           "service_tier": "default",
@@ -1198,7 +1214,7 @@
         }
       },
       {
-        "content": "Sunny, 72\u00b0F",
+        "content": "Sunny, 72°F",
         "additional_kwargs": {},
         "response_metadata": {},
         "type": "tool",
@@ -1208,7 +1224,7 @@
         "status": "success"
       },
       {
-        "content": "Cloudy, 58\u00b0F",
+        "content": "Cloudy, 58°F",
         "additional_kwargs": {},
         "response_metadata": {},
         "type": "tool",
@@ -1218,7 +1234,7 @@
         "status": "success"
       },
       {
-        "content": "Rainy, 52\u00b0F",
+        "content": "Rainy, 52°F",
         "additional_kwargs": {},
         "response_metadata": {},
         "type": "tool",
@@ -1228,7 +1244,7 @@
         "status": "success"
       },
       {
-        "content": "Here are the current conditions:\n\n- Tokyo: Sunny, 72\u00b0F\n- New York: Cloudy, 58\u00b0F\n- London: Rainy, 52\u00b0F",
+        "content": "Here are the current conditions:\n\n- Tokyo: Sunny, 72°F\n- New York: Cloudy, 58°F\n- London: Rainy, 52°F",
         "additional_kwargs": {
           "refusal": null
         },
@@ -1249,7 +1265,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2WFSvMELJQAeJCWWf8SdO1AxYHT",
           "service_tier": "default",
@@ -1280,8 +1296,9 @@
   "toolsCalled": [
     {
       "name": "get_weather",
+      "type": "FUNCTION",
       "output": {
-        "content": "Sunny, 72\u00b0F",
+        "content": "Sunny, 72°F",
         "additional_kwargs": {},
         "response_metadata": {},
         "type": "tool",
@@ -1296,8 +1313,9 @@
     },
     {
       "name": "get_weather",
+      "type": "FUNCTION",
       "output": {
-        "content": "Cloudy, 58\u00b0F",
+        "content": "Cloudy, 58°F",
         "additional_kwargs": {},
         "response_metadata": {},
         "type": "tool",
@@ -1312,8 +1330,9 @@
     },
     {
       "name": "get_weather",
+      "type": "FUNCTION",
       "output": {
-        "content": "Rainy, 52\u00b0F",
+        "content": "Rainy, 52°F",
         "additional_kwargs": {},
         "response_metadata": {},
         "type": "tool",

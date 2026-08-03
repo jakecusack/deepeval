@@ -18,7 +18,6 @@ from deepeval.test_case import (
     ToolCall,
 )
 from deepeval.metrics import BaseMetric
-from deepeval.metrics.tool_correctness.template import ToolCorrectnessTemplate
 from deepeval.metrics.tool_correctness.schema import ToolSelectionScore
 
 
@@ -33,7 +32,7 @@ class ToolCorrectnessMetric(BaseMetric):
     def __init__(
         self,
         available_tools: List[ToolCall] = None,
-        threshold: float = 0.5,
+        threshold: Optional[float] = 0.5,
         evaluation_params: List[ToolCallParams] = [],
         model: Optional[Union[str, DeepEvalBaseLLM]] = None,
         include_reason: bool = True,
@@ -42,6 +41,7 @@ class ToolCorrectnessMetric(BaseMetric):
         verbose_mode: bool = False,
         should_exact_match: bool = False,
         should_consider_ordering: bool = False,
+        flaky: bool = False,
     ):
         self.available_tools = available_tools
         self.threshold = 1 if strict_mode else threshold
@@ -50,6 +50,7 @@ class ToolCorrectnessMetric(BaseMetric):
         self.include_reason = include_reason
         self.strict_mode = strict_mode
         self.verbose_mode = verbose_mode
+        self.flaky = flaky
         self.evaluation_params: List[ToolCallParams] = evaluation_params
         self.should_exact_match = should_exact_match
         self.should_consider_ordering = should_consider_ordering
@@ -73,6 +74,8 @@ class ToolCorrectnessMetric(BaseMetric):
         )
         self.test_case = test_case
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
 
         with metric_progress_indicator(
             self, _show_indicator=_show_indicator, _in_component=_in_component
@@ -96,6 +99,7 @@ class ToolCorrectnessMetric(BaseMetric):
                         test_case.input,
                         test_case.tools_called,
                         self.available_tools,
+                        multimodal=test_case.multimodal,
                     )
                 else:
                     tool_selection_score = ToolSelectionScore(
@@ -110,7 +114,7 @@ class ToolCorrectnessMetric(BaseMetric):
                 self.reason = self._construct_final_reason(
                     tool_calling_reason, tool_selection_score.reason
                 )
-                self.success = self.score >= self.threshold
+                self.success = self.is_successful()
 
                 expected_tools_formatted = (
                     "Expected Tools:\n[\n"
@@ -178,6 +182,8 @@ class ToolCorrectnessMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self,
             async_mode=True,
@@ -192,6 +198,7 @@ class ToolCorrectnessMetric(BaseMetric):
                     test_case.input,
                     test_case.tools_called,
                     self.available_tools,
+                    multimodal=test_case.multimodal,
                 )
             else:
                 tool_selection_score = ToolSelectionScore(
@@ -206,7 +213,7 @@ class ToolCorrectnessMetric(BaseMetric):
             self.reason = self._construct_final_reason(
                 tool_calling_reason, tool_selection_score.reason
             )
-            self.success = self.score >= self.threshold
+            self.success = self.is_successful()
 
             expected_tools_formatted = (
                 "Expected Tools:\n[\n"
@@ -323,12 +330,16 @@ class ToolCorrectnessMetric(BaseMetric):
     ##################################################
 
     def _get_tool_selection_score(
-        self, user_input, tools_called, available_tools
+        self, user_input, tools_called, available_tools, *, multimodal: bool
     ):
         tools_called_formatted = print_tools_called(tools_called)
         available_tools_formatted = print_tools_called(available_tools)
-        prompt = ToolCorrectnessTemplate.get_tool_selection_score(
-            user_input, tools_called_formatted, available_tools_formatted
+        prompt = self._get_prompt(
+            "get_tool_selection_score",
+            user_input=user_input,
+            tools_called=tools_called_formatted,
+            available_tools=available_tools_formatted,
+            multimodal=multimodal,
         )
         return generate_with_schema_and_extract(
             metric=self,
@@ -339,12 +350,16 @@ class ToolCorrectnessMetric(BaseMetric):
         )
 
     async def _a_get_tool_selection_score(
-        self, user_input, tools_called, available_tools
+        self, user_input, tools_called, available_tools, *, multimodal: bool
     ):
         tools_called_formatted = print_tools_called(tools_called)
         available_tools_formatted = print_tools_called(available_tools)
-        prompt = ToolCorrectnessTemplate.get_tool_selection_score(
-            user_input, tools_called_formatted, available_tools_formatted
+        prompt = self._get_prompt(
+            "get_tool_selection_score",
+            user_input=user_input,
+            tools_called=tools_called_formatted,
+            available_tools=available_tools_formatted,
+            multimodal=multimodal,
         )
         return await a_generate_with_schema_and_extract(
             metric=self,
@@ -499,13 +514,6 @@ class ToolCorrectnessMetric(BaseMetric):
     ##################################################
     ### Others #######################################
     ##################################################
-
-    def is_successful(self) -> bool:
-        try:
-            self.success = self.score >= self.threshold
-        except (AttributeError, TypeError):
-            self.success = False
-        return self.success
 
     @property
     def __name__(self):

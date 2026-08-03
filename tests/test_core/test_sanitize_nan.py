@@ -13,6 +13,7 @@ from deepeval.tracing.utils import (
     make_json_serializable_for_metadata,
 )
 from deepeval.confident.api import _sanitize_body
+from deepeval.test_case.llm_test_case import ToolCall, ToolCallType
 
 # ---------------------------------------------------------------------------
 # make_json_serializable
@@ -80,6 +81,40 @@ class TestMakeJsonSerializable:
         )
         assert result == {"s": "hello", "i": 42, "b": True, "n": None}
 
+    def test_repeated_enum_members_serialize_to_values(self):
+        result = make_json_serializable(
+            [ToolCallType.FUNCTION, ToolCallType.FUNCTION]
+        )
+        assert result == ["FUNCTION", "FUNCTION"]
+
+    def test_repeated_shared_object_is_not_circular(self):
+        shared = {"name": "lookup_fund"}
+        result = make_json_serializable([shared, shared])
+        assert result == [shared, shared]
+
+    def test_genuine_cycle_is_replaced(self):
+        circular = []
+        circular.append(circular)
+        assert make_json_serializable(circular) == ["<circular>"]
+
+    def test_trace_tools_called_types_serialize_as_function(self):
+        tools_called = [
+            ToolCall(name="lookup_fund"),
+            ToolCall(name="lookup_portfolio"),
+        ]
+        payload = {
+            "toolsCalled": [
+                tool.model_dump(by_alias=True) for tool in tools_called
+            ]
+        }
+
+        result = make_json_serializable(payload)
+
+        assert [tool["type"] for tool in result["toolsCalled"]] == [
+            "FUNCTION",
+            "FUNCTION",
+        ]
+
 
 # ---------------------------------------------------------------------------
 # make_json_serializable_for_metadata
@@ -87,7 +122,13 @@ class TestMakeJsonSerializable:
 
 
 class TestMakeJsonSerializableForMetadata:
-    """metadata variant converts finite floats to str, non-finite to None."""
+    """metadata variant preserves finite primitives, replaces non-finite with None.
+
+    Previously this helper stringified every primitive (``True`` → ``"True"``,
+    ``3.14`` → ``"3.14"``), which destroyed type fidelity for user metadata.
+    The contract is now: primitives pass through, non-finite floats become
+    None, everything else gets serialized recursively.
+    """
 
     def test_nan_replaced_with_none(self):
         assert make_json_serializable_for_metadata(float("nan")) is None
@@ -98,15 +139,61 @@ class TestMakeJsonSerializableForMetadata:
     def test_neg_inf_replaced_with_none(self):
         assert make_json_serializable_for_metadata(float("-inf")) is None
 
-    def test_normal_float_becomes_string(self):
-        assert make_json_serializable_for_metadata(3.14) == "3.14"
+    def test_finite_float_preserved(self):
+        assert make_json_serializable_for_metadata(3.14) == 3.14
+
+    def test_int_preserved(self):
+        assert make_json_serializable_for_metadata(42) == 42
+
+    def test_bool_preserved(self):
+        assert make_json_serializable_for_metadata(True) is True
+        assert make_json_serializable_for_metadata(False) is False
+
+    def test_none_preserved(self):
+        assert make_json_serializable_for_metadata(None) is None
 
     def test_nan_inside_dict(self):
         result = make_json_serializable_for_metadata(
             {"cost": float("nan"), "ok": 2.0}
         )
         assert result["cost"] is None
-        assert result["ok"] == "2.0"
+        assert result["ok"] == 2.0
+
+    def test_mixed_primitives_inside_dict(self):
+        """Regression guard: every primitive type must round-trip with its
+        native JSON type intact."""
+        result = make_json_serializable_for_metadata(
+            {
+                "flag": True,
+                "count": 7,
+                "ratio": 0.25,
+                "missing": None,
+                "label": "ok",
+            }
+        )
+        assert result == {
+            "flag": True,
+            "count": 7,
+            "ratio": 0.25,
+            "missing": None,
+            "label": "ok",
+        }
+
+    def test_repeated_enum_members_serialize_to_values(self):
+        result = make_json_serializable_for_metadata(
+            [ToolCallType.FUNCTION, ToolCallType.FUNCTION]
+        )
+        assert result == ["FUNCTION", "FUNCTION"]
+
+    def test_repeated_shared_object_is_not_circular(self):
+        shared = {"name": "lookup_fund"}
+        result = make_json_serializable_for_metadata([shared, shared])
+        assert result == [shared, shared]
+
+    def test_genuine_cycle_is_replaced(self):
+        circular = []
+        circular.append(circular)
+        assert make_json_serializable_for_metadata(circular) == ["<circular>"]
 
 
 # ---------------------------------------------------------------------------

@@ -4,12 +4,16 @@ title: CLI Settings
 sidebar_label: CLI Settings
 ---
 
+import { ASSETS } from "@site/src/assets";
+
 ## Quick Summary
 
 `deepeval` provides a CLI for managing common tasks directly from the terminal. You can use it for:
 
 - Logging in/out and viewing test runs
 - Running evaluations from test files
+- Inspecting saved test runs in a terminal TUI (`deepeval inspect`)
+- Diagnosing your environment (`deepeval diagnose`): default models, effective settings, and where each value comes from
 - Generating synthetic goldens from docs, contexts, scratch, or existing goldens
 - Enabling/disabling debug
 - Selecting an LLM/embeddings provider (OpenAI, Azure OpenAI, Gemini, Grok, DeepSeek, LiteLLM, local/Ollama)
@@ -143,6 +147,7 @@ Useful options:
 | `--skip-on-missing-params`, `-s` | Skip test cases with missing metric parameters.                |
 | `--display`, `-d`                | Control final result display. Defaults to showing all results. |
 | `--mark`, `-m`                   | Run tests matching a pytest marker expression.                 |
+| `--official`, `-o`               | Mark this test run as the official baseline on Confident AI.   |
 
 You can pass additional pytest flags after the `deepeval` options. For example:
 
@@ -153,14 +158,77 @@ deepeval test run tests/evals \
   -- --tb=short
 ```
 
+### `inspect`
+
+Use `deepeval inspect` to open a saved test run inside a terminal TUI — a trace-tree viewer for metric scores, reasons, inputs/outputs, tool calls, and retriever context, all without leaving the terminal.
+
+The TUI is a **trace** viewer, so it's only useful for runs produced by `evals_iterator()` with an instrumented agent (see [single-turn end-to-end evals](/docs/evaluation-end-to-end-single-turn#approach-1-evals_iterator-with-tracing-recommended)). Each such call writes a rolling snapshot to `.deepeval/.latest_run_full.json` (gitignored alongside the rest of the hidden cache dir), so the zero-arg form picks up the most recent run automatically:
+
+```bash
+deepeval inspect
+```
+
+You can also point it at a specific file or folder:
+
+```bash
+deepeval inspect ./experiments/test_run_20260512_174200.json
+deepeval inspect ./experiments          # latest test_run_*.json inside
+deepeval inspect --folder ./experiments # same, via explicit flag
+```
+
+This allows you to inspect traces and spans locally on your machine:
+
+<ImageDisplayer
+  src={ASSETS.deepevalTuiInspect}
+  alt="deepeval inspect TUI showing a trace tree with per-span scores and metric reasons"
+/>
+
+Resolution order when no path is passed: `--folder` → `DEEPEVAL_RESULTS_FOLDER` → `.deepeval/.latest_run_full.json` → `./experiments` (legacy fallback).
+
+The TUI needs an optional extras bundle (Textual + clipboard support):
+
+```bash
+pip install 'deepeval[inspect]'
+```
+
+:::tip
+When an `evals_iterator()` run finishes in an interactive terminal and at least one test case captured a trace, deepeval offers to open it in the TUI for you. Disable per-call with `DisplayConfig(inspect_after_run=False)` or globally with `DEEPEVAL_NO_INSPECT_PROMPT=1` (e.g. in CI). See [display configs](/docs/evaluation-flags-and-configs#display-configs).
+:::
+
+### `diagnose`
+
+Use `deepeval diagnose` to print the configuration your environment actually resolves to — and where each value comes from. Reach for it when evals are using the wrong model, credentials, or data region, or when you're not sure which `.env` file is winning.
+
+```bash
+deepeval diagnose
+```
+
+The report shows:
+
+- **Versions**: deepeval and Python.
+- **Default models**: the LLM and embedding model deepeval will use when a class (metric, synthesizer, simulator, etc.) is constructed without an explicit `model=...`, and what each is used by.
+- **Configured settings**: every deepeval setting that is explicitly set, with secrets masked (only the last 6 characters shown) and the **winning source** for each — the report uses the same resolvers as the runtime, so what you see is what your evals get.
+- **Setting sources**: the precedence order (process environment → `.env.local` → `.env.<APP_ENV>` → `.env` → JSON keystore → built-in defaults) and which of those exist on disk. Each variable is resolved independently against this order.
+- **Confident AI**: login status, masked API key, data region, and the API and OTEL endpoints — with warnings if the endpoints look like they belong to a different region than your API key.
+
+Options:
+
+| Option   | Description                                                              |
+| -------- | ------------------------------------------------------------------------ |
+| `--json` | Output the full report as JSON (machine-readable, secrets stay masked). |
+
+:::tip
+`deepeval diagnose --json` is handy in CI or bug reports — it's safe to share since all secrets are masked.
+:::
+
 ## Confident AI Commands
 
 Use these commands to connect `deepeval` to **Confident AI** (`deepeval` Cloud) so your local evaluations can be uploaded, organized, and viewed as rich test run reports on the cloud. If you don’t have an account yet, [sign up here](https://app.confident-ai.com).
 
 ### `login` & `logout`
 
-- `deepeval login [--confident-api-key ...] [--save=dotenv[:path]]`: Log in to Confident AI by saving your `CONFIDENT_API_KEY`. Once logged in, `deepeval` can automatically upload test runs so you can browse results, share reports, and track evaluation performance over time on Confident AI.
-- `deepeval logout [--save=dotenv[:path]]`: Remove your Confident AI credentials from local persistence (JSON keystore and the chosen dotenv file).
+- `deepeval login [--api-key ...] [--save=dotenv[:path]]`: Log in to Confident AI. The interactive flow opens a browser for authentication, then returns to the terminal to create an organization and first project or select an existing project. DeepEval creates a dedicated project API key and saves it as `CONFIDENT_API_KEY`. Use `--api-key` for CI, headless automation, or manual fallback.
+- `deepeval logout [--save=dotenv[:path]]`: Remove your Confident AI credentials from local persistence — the JSON keystore and every dotenv file deepeval auto-loads (`.env`, `.env.<APP_ENV>`, `.env.local`). If `CONFIDENT_API_KEY` is exported by your shell itself, deepeval cannot unset it and will tell you to run `unset CONFIDENT_API_KEY`.
 
 ### `view`
 

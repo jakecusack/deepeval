@@ -48,7 +48,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2WyUheYnX259LUVNuD5vAyN4f1g",
               "service_tier": "default",
@@ -91,7 +91,8 @@
             "type": "Document"
           }
         ]
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0518-8c45-7740-a166-82cc0a9332e3",
@@ -158,7 +159,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2WyUheYnX259LUVNuD5vAyN4f1g",
               "service_tier": "default",
@@ -184,7 +185,8 @@
             }
           }
         ]
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0518-8c44-74f3-98e9-26bc77a5aaeb",
@@ -222,7 +224,8 @@
             "type": "Document"
           }
         ]
-      }
+      },
+      "integration": "LangChain"
     }
   ],
   "agentSpans": [],
@@ -254,9 +257,11 @@
         "content": "LangChain is a framework for developing applications powered by language models. It provides tools for chaining LLM calls and integrating those models with external data.",
         "tool_calls": []
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 79.0,
-      "outputTokenCount": 102.0
+      "outputTokenCount": 102.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     }
   ],
   "retrieverSpans": [
@@ -273,7 +278,8 @@
         "page_content='LangChain is a framework for developing applications powered by language models.' metadata={'source': 'doc3'}",
         "page_content='LangChain provides tools for chaining LLM calls and integrating with external data.' metadata={'source': 'doc4'}"
       ],
-      "embedder": "unknown"
+      "embedder": "unknown",
+      "integration": "LangChain"
     }
   ],
   "toolSpans": [],
@@ -326,7 +332,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2WyUheYnX259LUVNuD5vAyN4f1g",
           "service_tier": "default",

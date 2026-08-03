@@ -3,9 +3,6 @@ from typing import Optional, List, Tuple, Union
 
 from deepeval.metrics import BaseMetric
 from deepeval.test_case import SingleTurnParams, LLMTestCase, MLLMImage
-from deepeval.metrics.multimodal_metrics.image_coherence.template import (
-    ImageCoherenceTemplate,
-)
 from deepeval.metrics.utils import (
     construct_verbose_logs,
     check_llm_test_case_params,
@@ -33,11 +30,12 @@ class ImageCoherenceMetric(BaseMetric):
     def __init__(
         self,
         model: Optional[Union[str, DeepEvalBaseLLM]] = None,
-        threshold: float = 0.5,
+        threshold: Optional[float] = 0.5,
         async_mode: bool = True,
         strict_mode: bool = False,
         verbose_mode: bool = False,
         max_context_size: Optional[int] = None,
+        flaky: bool = False,
     ):
         self.model, self.using_native_model = initialize_model(model)
         self.evaluation_model = self.model.get_model_name()
@@ -45,6 +43,7 @@ class ImageCoherenceMetric(BaseMetric):
         self.strict_mode = strict_mode
         self.async_mode = async_mode
         self.verbose_mode = verbose_mode
+        self.flaky = flaky
         self.max_context_size = max_context_size
 
     def measure(
@@ -64,6 +63,8 @@ class ImageCoherenceMetric(BaseMetric):
             test_case.multimodal,
         )
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self, _show_indicator=_show_indicator, _in_component=_in_component
         ):
@@ -177,6 +178,8 @@ class ImageCoherenceMetric(BaseMetric):
             test_case.multimodal,
         )
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self,
             async_mode=True,
@@ -279,8 +282,10 @@ class ImageCoherenceMetric(BaseMetric):
         context_above: Optional[str] = None,
         context_below: Optional[str] = None,
     ) -> Tuple[float, str]:
-        instructions = ImageCoherenceTemplate.evaluate_image_coherence(
-            context_above, context_below
+        instructions = self._get_prompt(
+            "evaluate_image_coherence",
+            context_above=context_above,
+            context_below=context_below,
         )
         prompt = f"{instructions} \nImages: {image}"
         return generate_with_schema_and_extract(
@@ -297,8 +302,10 @@ class ImageCoherenceMetric(BaseMetric):
         context_above: Optional[str] = None,
         context_below: Optional[str] = None,
     ) -> Tuple[float, str]:
-        instructions = ImageCoherenceTemplate.evaluate_image_coherence(
-            context_above, context_below
+        instructions = self._get_prompt(
+            "evaluate_image_coherence",
+            context_above=context_above,
+            context_below=context_below,
         )
         prompt = f"{instructions} \nImages: {image}"
         return await a_generate_with_schema_and_extract(
@@ -344,16 +351,6 @@ class ImageCoherenceMetric(BaseMetric):
 
     def calculate_score(self, scores: List[float]) -> float:
         return sum(scores) / len(scores)
-
-    def is_successful(self) -> bool:
-        if self.error is not None:
-            self.success = False
-        else:
-            try:
-                self.success = self.score >= self.threshold
-            except TypeError:
-                self.success = False
-        return self.success
 
     @property
     def __name__(self):

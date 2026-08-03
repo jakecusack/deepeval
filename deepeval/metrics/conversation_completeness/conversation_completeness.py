@@ -2,9 +2,6 @@ import asyncio
 from typing import Optional, Union, List
 
 from deepeval.metrics import BaseConversationalMetric
-from deepeval.metrics.conversation_completeness.template import (
-    ConversationCompletenessTemplate,
-)
 from deepeval.metrics.utils import (
     check_conversational_test_case_params,
     construct_verbose_logs,
@@ -31,13 +28,14 @@ class ConversationCompletenessMetric(BaseConversationalMetric):
 
     def __init__(
         self,
-        threshold: float = 0.5,
+        threshold: Optional[float] = 0.5,
         model: Optional[Union[str, DeepEvalBaseLLM]] = None,
         include_reason: bool = True,
         async_mode: bool = True,
         strict_mode: bool = False,
         verbose_mode: bool = False,
         window_size: int = 3,
+        flaky: bool = False,
     ):
         self.threshold = 1 if strict_mode else threshold
         self.model, self.using_native_model = initialize_model(model)
@@ -46,6 +44,7 @@ class ConversationCompletenessMetric(BaseConversationalMetric):
         self.async_mode = async_mode
         self.strict_mode = strict_mode
         self.verbose_mode = verbose_mode
+        self.flaky = flaky
         self.window_size = window_size
 
     def measure(
@@ -67,6 +66,8 @@ class ConversationCompletenessMetric(BaseConversationalMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self, _show_indicator=_show_indicator, _in_component=_in_component
         ):
@@ -95,7 +96,7 @@ class ConversationCompletenessMetric(BaseConversationalMetric):
 
                 self.score = self._calculate_score()
                 self.reason = self._generate_reason(multimodal=multimodal)
-                self.success = self.score >= self.threshold
+                self.success = self.is_successful()
                 self.verbose_logs = construct_verbose_logs(
                     self,
                     steps=[
@@ -126,6 +127,8 @@ class ConversationCompletenessMetric(BaseConversationalMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self,
             async_mode=True,
@@ -148,7 +151,7 @@ class ConversationCompletenessMetric(BaseConversationalMetric):
 
             self.score = self._calculate_score()
             self.reason = await self._a_generate_reason(multimodal=multimodal)
-            self.success = self.score >= self.threshold
+            self.success = self.is_successful()
             self.verbose_logs = construct_verbose_logs(
                 self,
                 steps=[
@@ -170,7 +173,8 @@ class ConversationCompletenessMetric(BaseConversationalMetric):
             ):
                 incompletenesses.append(verdict.reason)
 
-        prompt = ConversationCompletenessTemplate.generate_reason(
+        prompt = self._get_prompt(
+            "generate_reason",
             score=self.score,
             incompletenesses=incompletenesses,
             intentions=self.user_intentions,
@@ -197,7 +201,8 @@ class ConversationCompletenessMetric(BaseConversationalMetric):
             ):
                 incompletenesses.append(verdict.reason)
 
-        prompt = ConversationCompletenessTemplate.generate_reason(
+        prompt = self._get_prompt(
+            "generate_reason",
             score=self.score,
             incompletenesses=incompletenesses,
             intentions=self.user_intentions,
@@ -214,7 +219,8 @@ class ConversationCompletenessMetric(BaseConversationalMetric):
     async def _a_generate_verdict(
         self, turns: List[Turn], intention: str, multimodal: bool
     ) -> ConversationCompletenessVerdict:
-        prompt = ConversationCompletenessTemplate.generate_verdicts(
+        prompt = self._get_prompt(
+            "generate_verdicts",
             turns=[convert_turn_to_dict(turn) for turn in turns],
             intention=intention,
             multimodal=multimodal,
@@ -231,7 +237,8 @@ class ConversationCompletenessMetric(BaseConversationalMetric):
     def _generate_verdict(
         self, turns: List[Turn], intention: str, multimodal: bool
     ) -> ConversationCompletenessVerdict:
-        prompt = ConversationCompletenessTemplate.generate_verdicts(
+        prompt = self._get_prompt(
+            "generate_verdicts",
             turns=[convert_turn_to_dict(turn) for turn in turns],
             intention=intention,
             multimodal=multimodal,
@@ -247,7 +254,8 @@ class ConversationCompletenessMetric(BaseConversationalMetric):
     async def _a_extract_user_intentions(
         self, turns: List[Turn], multimodal: bool
     ) -> List[str]:
-        prompt = ConversationCompletenessTemplate.extract_user_intentions(
+        prompt = self._get_prompt(
+            "extract_user_intentions",
             turns=[convert_turn_to_dict(turn) for turn in turns],
             multimodal=multimodal,
         )
@@ -263,7 +271,8 @@ class ConversationCompletenessMetric(BaseConversationalMetric):
     def _extract_user_intentions(
         self, turns: List[Turn], multimodal: bool
     ) -> List[str]:
-        prompt = ConversationCompletenessTemplate.extract_user_intentions(
+        prompt = self._get_prompt(
+            "extract_user_intentions",
             turns=[convert_turn_to_dict(turn) for turn in turns],
             multimodal=multimodal,
         )
@@ -292,16 +301,6 @@ class ConversationCompletenessMetric(BaseConversationalMetric):
 
         score = relevant_count / number_of_verdicts
         return 0 if self.strict_mode and score < self.threshold else score
-
-    def is_successful(self) -> bool:
-        if self.error is not None:
-            self.success = False
-        else:
-            try:
-                self.success = self.score >= self.threshold
-            except TypeError:
-                self.success = False
-        return self.success
 
     @property
     def __name__(self):

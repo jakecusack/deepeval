@@ -364,10 +364,12 @@ asyncio.run(run())
 </Tab>
 <Tab value="LangGraph">
 
-Pass a `CallbackHandler` instance in the `config` when invoking your graph. deepeval intercepts chain, LLM, and tool events, building the full agent span tree automatically.
+Wire a `StateGraph` with `ToolNode` for tool execution, then pass a `CallbackHandler` in the `config` when invoking it. deepeval intercepts chain, LLM, and tool events, building the full agent span tree automatically.
 
 ```python title="main.py" showLineNumbers
-from langgraph.prebuilt import create_react_agent
+from langchain.chat_models import init_chat_model
+from langgraph.graph import StateGraph, MessagesState, START, END
+from langgraph.prebuilt import ToolNode, tools_condition
 
 from deepeval.integrations.langchain import CallbackHandler
 
@@ -377,15 +379,26 @@ def get_weather(city: str) -> str:
     return f"It's always sunny in {city}!"
 
 
-agent = create_react_agent(
-    model="openai:gpt-4o-mini",
-    tools=[get_weather],
-    prompt="You are a helpful assistant",
+llm = init_chat_model("openai:gpt-4o-mini").bind_tools([get_weather])
+
+
+def chatbot(state: MessagesState):
+    return {"messages": [llm.invoke(state["messages"])]}
+
+
+graph = (
+    StateGraph(MessagesState)
+    .add_node(chatbot)
+    .add_node("tools", ToolNode([get_weather]))
+    .add_edge(START, "chatbot")
+    .add_conditional_edges("chatbot", tools_condition)
+    .add_edge("tools", "chatbot")
+    .compile()
 )
 
-# Pass CallbackHandler as config — all agent, LLM, and tool spans are captured automatically
-result = agent.invoke(
-    input={"messages": [{"role": "user", "content": "What's the weather in Paris?"}]},
+# Pass CallbackHandler as config — all node, LLM, and tool spans are captured automatically
+result = graph.invoke(
+    {"messages": [{"role": "user", "content": "What's the weather in Paris?"}]},
     config={"callbacks": [CallbackHandler()]},
 )
 print(result)
@@ -498,7 +511,8 @@ Log in to Confident AI and create metric collections tailored to your evaluation
 <VideoDisplayer
   src={ASSETS.metricsCreateCollection}
   confidentUrl="/docs/llm-tracing/evaluations"
-  label="Create Agentic Metric Collections on Confident AI"
+  label="Create agentic metric collections on Confident AI"
+  description="Group agentic metrics to score tool use and task completion automatically."
 />
 
 </Step>
@@ -524,9 +538,10 @@ When the trace is sent to Confident AI, the platform evaluates the entire execut
 Use Confident AI's trace visualization to inspect runaway loops, silent tool failures, and sub-agent handoffs. You can click into any individual tool span to see the exact arguments passed and the JSON schema returned by your external APIs.
 
 <VideoDisplayer
-src={ASSETS.tracingTraces}
-confidentUrl="/docs/llm-tracing/evaluations"
-label="Track agent execution paths and metrics on Confident AI"
+  src={ASSETS.tracingTraces}
+  confidentUrl="/docs/llm-tracing/evaluations"
+  label="Track agent execution paths and metrics on Confident AI"
+  description="Follow each agent run step-by-step with metric scores attached."
 />
 
 </Step>
@@ -549,6 +564,91 @@ In this guide, you learned how to instrument complex AI agents to capture their 
 - **Production** — Export traces to Confident AI to visually debug complex execution graphs. Use asynchronous `metric_collection`s on both the agent and LLM spans to continuously monitor task completion and tool precision without blocking execution.
 
 :::
+
+## FAQs
+
+<FAQs
+  qas={[
+    {
+      question: "What is agentic tracing?",
+      answer: (
+        <>
+          Agentic tracing is the practice of capturing the non-deterministic
+          execution path of an AI agent—every reasoning step, tool call, and
+          handoff—as a structured tree. In DeepEval, this is done by
+          decorating your code with <code>@observe</code>, which automatically
+          builds the execution tree.
+        </>
+      ),
+    },
+    {
+      question: "How is agent tracing different from RAG tracing?",
+      answer:
+        "RAG tracing typically captures a linear pipeline (retrieve → generate). Agent tracing captures dynamic loops where the agent iteratively calls tools and re-plans, producing a tree with multiple LLM and tool spans per request.",
+    },
+    {
+      question: "Which span types should I use for AI agents?",
+      answer: (
+        <>
+          Use <code>type="agent"</code> for the orchestrator,{" "}
+          <code>type="llm"</code> for inference and decision making,{" "}
+          <code>type="tool"</code> for external function or API executions,
+          and <code>type="retriever"</code> for any context-fetching steps.
+          DeepEval builds the parent-child tree from your call stack
+          automatically.
+        </>
+      ),
+    },
+    {
+      question: "How do I trace tool calls in DeepEval?",
+      answer: (
+        <>
+          Decorate each tool function with <code>@observe(type="tool")</code>.
+          DeepEval captures the arguments, return value, and latency, and
+          automatically propagates the call to the parent span's{" "}
+          <code>tools_called</code> attribute so agent metrics can read it.
+        </>
+      ),
+    },
+    {
+      question: "Can I run metrics on individual agent spans during development?",
+      answer: (
+        <>
+          Yes. Pass <code>metrics=[...]</code> to <code>@observe</code>{" "}
+          directly. For example, attach <code>ToolCorrectnessMetric</code> to
+          the LLM span to evaluate tool selection at the component level, and{" "}
+          <code>TaskCompletionMetric</code> to the agent span for end-to-end
+          evaluation.
+        </>
+      ),
+    },
+    {
+      question: "How do I detect reasoning loops or runaway agents?",
+      answer: (
+        <>
+          Look for repeated tool calls with identical arguments inside the
+          same trace, or an unusually high number of LLM inference spans for a
+          simple task. Tracing surfaces these patterns visually—either by
+          inspecting the raw trace dictionary locally or via{" "}
+          <a href="https://confident-ai.com">Confident AI</a>'s trace
+          explorer.
+        </>
+      ),
+    },
+    {
+      question: "How do I run agentic evaluation in production?",
+      answer: (
+        <>
+          Define a metric collection on{" "}
+          <a href="https://confident-ai.com">Confident AI</a> and pass{" "}
+          <code>metric_collection</code> to your <code>@observe</code>{" "}
+          decorators. Traces are exported asynchronously and evaluated by
+          Confident AI without blocking your live agent.
+        </>
+      ),
+    },
+  ]}
+/>
 
 ## Next Steps And Additional Resources
 

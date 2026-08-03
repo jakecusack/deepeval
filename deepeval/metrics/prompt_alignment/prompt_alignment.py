@@ -20,7 +20,6 @@ from deepeval.test_case import (
 )
 from deepeval.metrics import BaseMetric
 from deepeval.models import DeepEvalBaseLLM
-from deepeval.metrics.prompt_alignment.template import PromptAlignmentTemplate
 from deepeval.metrics.indicator import metric_progress_indicator
 from deepeval.metrics.prompt_alignment import schema as paschema
 
@@ -35,12 +34,13 @@ class PromptAlignmentMetric(BaseMetric):
     def __init__(
         self,
         prompt_instructions: List[str],
-        threshold: float = 0.5,
+        threshold: Optional[float] = 0.5,
         model: Optional[Union[str, DeepEvalBaseLLM]] = None,
         include_reason: bool = True,
         async_mode: bool = True,
         strict_mode: bool = False,
         verbose_mode: bool = False,
+        flaky: bool = False,
     ):
         if len(prompt_instructions) == 0:
             raise ValueError("'prompt_instructions' must not be empty.")
@@ -53,6 +53,7 @@ class PromptAlignmentMetric(BaseMetric):
         self.async_mode = async_mode
         self.strict_mode = strict_mode
         self.verbose_mode = verbose_mode
+        self.flaky = flaky
 
     def measure(
         self,
@@ -73,6 +74,8 @@ class PromptAlignmentMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self, _show_indicator=_show_indicator, _in_component=_in_component
         ):
@@ -100,7 +103,7 @@ class PromptAlignmentMetric(BaseMetric):
                 self.reason = self._generate_reason(
                     test_case.input, test_case.actual_output
                 )
-                self.success = self.score >= self.threshold
+                self.success = self.is_successful()
                 self.verbose_logs = construct_verbose_logs(
                     self,
                     steps=[
@@ -131,6 +134,8 @@ class PromptAlignmentMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self,
             async_mode=True,
@@ -146,7 +151,7 @@ class PromptAlignmentMetric(BaseMetric):
             self.reason = await self._a_generate_reason(
                 test_case.input, test_case.actual_output
             )
-            self.success = self.score >= self.threshold
+            self.success = self.is_successful()
             self.verbose_logs = construct_verbose_logs(
                 self,
                 steps=[
@@ -168,7 +173,8 @@ class PromptAlignmentMetric(BaseMetric):
             if verdict.verdict.strip().lower() == "no":
                 unalignment_reasons.append(verdict.reason)
 
-        prompt = PromptAlignmentTemplate.generate_reason(
+        prompt = self._get_prompt(
+            "generate_reason",
             unalignment_reasons=unalignment_reasons,
             input=input,
             actual_output=actual_output,
@@ -192,7 +198,8 @@ class PromptAlignmentMetric(BaseMetric):
             if verdict.verdict.strip().lower() == "no":
                 unalignment_reasons.append(verdict.reason)
 
-        prompt = PromptAlignmentTemplate.generate_reason(
+        prompt = self._get_prompt(
+            "generate_reason",
             unalignment_reasons=unalignment_reasons,
             input=input,
             actual_output=actual_output,
@@ -210,7 +217,8 @@ class PromptAlignmentMetric(BaseMetric):
     async def _a_generate_verdicts(
         self, input: str, actual_output: str
     ) -> List[paschema.PromptAlignmentVerdict]:
-        prompt = PromptAlignmentTemplate.generate_verdicts(
+        prompt = self._get_prompt(
+            "generate_verdicts",
             prompt_instructions=self.prompt_instructions,
             input=input,
             actual_output=actual_output,
@@ -229,7 +237,8 @@ class PromptAlignmentMetric(BaseMetric):
     def _generate_verdicts(
         self, input: str, actual_output: str
     ) -> List[paschema.PromptAlignmentVerdict]:
-        prompt = PromptAlignmentTemplate.generate_verdicts(
+        prompt = self._get_prompt(
+            "generate_verdicts",
             prompt_instructions=self.prompt_instructions,
             input=input,
             actual_output=actual_output,
@@ -257,16 +266,6 @@ class PromptAlignmentMetric(BaseMetric):
 
         score = alignment_count / number_of_verdicts
         return 0 if self.strict_mode and score < self.threshold else score
-
-    def is_successful(self) -> bool:
-        if self.error is not None:
-            self.success = False
-        else:
-            try:
-                self.success = self.score >= self.threshold
-            except TypeError:
-                self.success = False
-        return self.success
 
     @property
     def __name__(self):

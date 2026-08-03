@@ -300,7 +300,8 @@ If you've set your `CONFIDENT_API_KEY`, test runs will appear automatically on [
 <VideoDisplayer
   src={ASSETS.gettingStartedMcpSingleTurn}
   confidentUrl="https://www.confident-ai.com/docs/llm-evaluation/dashboards/testing-reports"
-  label="Evaluations Test Reports on Confident AI"
+  label="Evaluation test reports on Confident AI"
+  description="Inspect MCP eval results test case by test case."
 />
 
 :::tip
@@ -416,7 +417,8 @@ If you've set your `CONFIDENT_API_KEY`, test runs will appear automatically on [
 <VideoDisplayer
   src={ASSETS.gettingStartedMcpMultiTurn}
   confidentUrl="https://www.confident-ai.com/docs/llm-evaluation/multi-turn/end-to-end"
-  label="Multi-Turn End-to-End Evals"
+  label="Multi-turn end-to-end evals"
+  description="Evaluate full conversations between your MCP client and server."
 />
 
 :::tip
@@ -437,12 +439,13 @@ Now that you have run your first MCP eval, you should:
 
 1. **Customize your metrics**: You can change the threshold of your metrics to be more strict to your use-case.
 2. **Prepare a dataset**: If you don't have one, [generate one](/docs/golden-synthesizer) as a starting point to store your inputs as goldens.
-3. **Setup Tracing**: If you created your own custom MCP server, you can [setup tracing](https://documentation.confident-ai.com/docs/llm-tracing/tracing-features/span-types) on your tool definitons.
+3. **Setup Tracing**: If you created your own custom MCP server, you can [setup tracing](https://documentation.confident-ai.com/docs/llm-tracing/tracing-features/span-types) on your tool definitions.
 
 <VideoDisplayer
   src={ASSETS.tracingSpans}
   confidentUrl="/docs/llm-tracing/introduction"
-  label="Span-Level Evals in Production"
+  label="Span-level evals in production"
+  description="Evaluate individual MCP tool calls inside every trace."
 />
 
 You can [learn more about MCP here](/docs/evaluation-mcp).

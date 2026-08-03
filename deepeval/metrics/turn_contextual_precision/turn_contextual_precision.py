@@ -1,4 +1,4 @@
-from typing import List, Optional, Union, Type, Tuple
+from typing import List, Optional, Union, Tuple
 import asyncio
 import itertools
 from deepeval.test_case import ConversationalTestCase, MultiTurnParams, Turn
@@ -9,7 +9,6 @@ from deepeval.utils import (
 )
 from deepeval.metrics.utils import (
     construct_verbose_logs,
-    trimAndLoadJson,
     check_conversational_test_case_params,
     get_unit_interactions,
     get_turns_in_sliding_window,
@@ -18,16 +17,32 @@ from deepeval.metrics.utils import (
     generate_with_schema_and_extract,
 )
 from deepeval.models import DeepEvalBaseLLM
-from deepeval.metrics.turn_contextual_precision.template import (
-    TurnContextualPrecisionTemplate,
-)
+from deepeval.metrics.retrieval_context_display import id_retrieval_context
 from deepeval.metrics.indicator import metric_progress_indicator
+from deepeval.test_case import MLLMImage
 from deepeval.metrics.turn_contextual_precision.schema import (
     ContextualPrecisionVerdict,
     Verdicts,
     ContextualPrecisionScoreReason,
     InteractionContextualPrecisionScore,
 )
+
+
+def _contextual_precision_verdict_fields(
+    retrieval_context: List[str],
+    multimodal: bool,
+) -> Tuple[str, Union[List[str], List[Union[str, MLLMImage]]], str]:
+    document_count_str = (
+        f" ({len(retrieval_context)} document"
+        f"{'s' if len(retrieval_context) > 1 else ''})"
+    )
+    context_to_display = (
+        id_retrieval_context(retrieval_context)
+        if multimodal
+        else retrieval_context
+    )
+    multimodal_note = " (which can be text or an image)" if multimodal else ""
+    return document_count_str, context_to_display, multimodal_note
 
 
 class TurnContextualPrecisionMetric(BaseConversationalMetric):
@@ -40,16 +55,14 @@ class TurnContextualPrecisionMetric(BaseConversationalMetric):
 
     def __init__(
         self,
-        threshold: float = 0.5,
+        threshold: Optional[float] = 0.5,
         model: Optional[Union[str, DeepEvalBaseLLM]] = None,
         include_reason: bool = True,
         async_mode: bool = True,
         strict_mode: bool = False,
         verbose_mode: bool = False,
         window_size: int = 10,
-        evaluation_template: Type[
-            TurnContextualPrecisionTemplate
-        ] = TurnContextualPrecisionTemplate,
+        flaky: bool = False,
     ):
         self.threshold = 1 if strict_mode else threshold
         self.model, self.using_native_model = initialize_model(model)
@@ -58,8 +71,8 @@ class TurnContextualPrecisionMetric(BaseConversationalMetric):
         self.async_mode = async_mode
         self.strict_mode = strict_mode
         self.verbose_mode = verbose_mode
+        self.flaky = flaky
         self.window_size = window_size
-        self.evaluation_template = evaluation_template
 
     def measure(
         self,
@@ -80,6 +93,8 @@ class TurnContextualPrecisionMetric(BaseConversationalMetric):
         multimodal = test_case.multimodal
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self, _show_indicator=_show_indicator, _in_component=_in_component
         ):
@@ -109,7 +124,7 @@ class TurnContextualPrecisionMetric(BaseConversationalMetric):
                         )
                     )
                 self.score = self._calculate_score(scores)
-                self.success = self.score >= self.threshold
+                self.success = self.is_successful()
                 self.reason = self._generate_reason(scores)
                 verbose_steps = self._get_verbose_steps(scores)
                 self.verbose_logs = construct_verbose_logs(
@@ -142,6 +157,8 @@ class TurnContextualPrecisionMetric(BaseConversationalMetric):
         multimodal = test_case.multimodal
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self,
             async_mode=True,
@@ -169,7 +186,7 @@ class TurnContextualPrecisionMetric(BaseConversationalMetric):
                 tasks.append(get_individual_scores(window))
             await asyncio.gather(*tasks)
             self.score = self._calculate_score(scores)
-            self.success = self.score >= self.threshold
+            self.success = self.is_successful()
             self.reason = await self._a_generate_reason(scores)
             verbose_steps = self._get_verbose_steps(scores)
             self.verbose_logs = construct_verbose_logs(
@@ -265,11 +282,17 @@ class TurnContextualPrecisionMetric(BaseConversationalMetric):
 
         verdicts: List[ContextualPrecisionVerdict] = []
 
-        prompt = self.evaluation_template.generate_verdicts(
+        doc_str, ctx_disp, mm_note = _contextual_precision_verdict_fields(
+            retrieval_context, multimodal
+        )
+        prompt = self._get_prompt(
+            "generate_verdicts",
             input=input,
             expected_outcome=expected_outcome,
-            retrieval_context=retrieval_context,
             multimodal=multimodal,
+            document_count_str=doc_str,
+            context_to_display=ctx_disp,
+            multimodal_note=mm_note,
         )
 
         return await a_generate_with_schema_and_extract(
@@ -292,11 +315,17 @@ class TurnContextualPrecisionMetric(BaseConversationalMetric):
 
         verdicts: List[ContextualPrecisionVerdict] = []
 
-        prompt = self.evaluation_template.generate_verdicts(
+        doc_str, ctx_disp, mm_note = _contextual_precision_verdict_fields(
+            retrieval_context, multimodal
+        )
+        prompt = self._get_prompt(
+            "generate_verdicts",
             input=input,
             expected_outcome=expected_outcome,
-            retrieval_context=retrieval_context,
             multimodal=multimodal,
+            document_count_str=doc_str,
+            context_to_display=ctx_disp,
+            multimodal_note=mm_note,
         )
 
         return generate_with_schema_and_extract(
@@ -400,7 +429,8 @@ class TurnContextualPrecisionMetric(BaseConversationalMetric):
                 }
             )
 
-        prompt = self.evaluation_template.generate_reason(
+        prompt = self._get_prompt(
+            "generate_reason",
             input=input,
             score=format(score, ".2f"),
             verdicts=verdicts_with_nodes,
@@ -436,7 +466,8 @@ class TurnContextualPrecisionMetric(BaseConversationalMetric):
                 }
             )
 
-        prompt = self.evaluation_template.generate_reason(
+        prompt = self._get_prompt(
+            "generate_reason",
             input=input,
             score=format(score, ".2f"),
             verdicts=verdicts_with_nodes,
@@ -478,8 +509,11 @@ class TurnContextualPrecisionMetric(BaseConversationalMetric):
         for score in scores:
             reasons.append(score.reason)
 
-        prompt = self.evaluation_template.generate_final_reason(
-            self.score, self.success, reasons
+        prompt = self._get_prompt(
+            "generate_final_reason",
+            final_score=self.score,
+            success=self.success,
+            reasons=reasons,
         )
 
         return generate_with_schema_and_extract(
@@ -503,8 +537,11 @@ class TurnContextualPrecisionMetric(BaseConversationalMetric):
         for score in scores:
             reasons.append(score.reason)
 
-        prompt = self.evaluation_template.generate_final_reason(
-            self.score, self.success, reasons
+        prompt = self._get_prompt(
+            "generate_final_reason",
+            final_score=self.score,
+            success=self.success,
+            reasons=reasons,
         )
 
         return await a_generate_with_schema_and_extract(
@@ -525,16 +562,6 @@ class TurnContextualPrecisionMetric(BaseConversationalMetric):
         for score in scores:
             total_score += score.score
         return total_score / number_of_scores
-
-    def is_successful(self) -> bool:
-        if self.error is not None:
-            self.success = False
-        else:
-            try:
-                self.success = self.score >= self.threshold
-            except:
-                self.success = False
-        return self.success
 
     @property
     def __name__(self):

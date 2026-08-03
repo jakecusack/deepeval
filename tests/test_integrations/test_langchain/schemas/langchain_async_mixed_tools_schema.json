@@ -48,7 +48,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2M41gOxHaBrky9YaFbkN4BRqHQv",
               "service_tier": "default",
@@ -92,7 +92,7 @@
             "status": "success"
           },
           {
-            "content": "Paris: Partly cloudy, 62\u00b0F (about 17\u00b0C).",
+            "content": "Paris: Partly cloudy, 62°F (about 17°C).",
             "additional_kwargs": {
               "refusal": null
             },
@@ -113,7 +113,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2M50XvrpZI94HkEfkTWhKI7jIVt",
               "service_tier": "default",
@@ -143,6 +143,7 @@
       "toolsCalled": [
         {
           "name": "get_weather",
+          "type": "FUNCTION",
           "output": {
             "content": "Partly cloudy, 62F",
             "additional_kwargs": {},
@@ -156,7 +157,8 @@
             "city": "Paris"
           }
         }
-      ]
+      ],
+      "integration": "LangChain"
     }
   ],
   "agentSpans": [],
@@ -193,12 +195,14 @@
       ],
       "output": {
         "role": "AI",
-        "content": "Paris: Partly cloudy, 62\u00b0F (about 17\u00b0C).",
+        "content": "Paris: Partly cloudy, 62°F (about 17°C).",
         "tool_calls": []
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 202.0,
-      "outputTokenCount": 152.0
+      "outputTokenCount": 152.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     },
     {
       "uuid": "019d050e-3852-7eb1-b360-3cc1d1f4485b",
@@ -235,9 +239,11 @@
           }
         ]
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 167.0,
-      "outputTokenCount": 23.0
+      "outputTokenCount": 23.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     }
   ],
   "retrieverSpans": [],
@@ -261,7 +267,8 @@
         "name": "get_weather",
         "tool_call_id": "call_hxpKlosoGijWODi9d3S8VDef",
         "status": "success"
-      }
+      },
+      "integration": "LangChain"
     }
   ],
   "startTime": "2026-03-19T07:45:11.250Z",
@@ -313,7 +320,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2M41gOxHaBrky9YaFbkN4BRqHQv",
           "service_tier": "default",
@@ -357,7 +364,7 @@
         "status": "success"
       },
       {
-        "content": "Paris: Partly cloudy, 62\u00b0F (about 17\u00b0C).",
+        "content": "Paris: Partly cloudy, 62°F (about 17°C).",
         "additional_kwargs": {
           "refusal": null
         },
@@ -378,7 +385,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2M50XvrpZI94HkEfkTWhKI7jIVt",
           "service_tier": "default",
@@ -409,6 +416,7 @@
   "toolsCalled": [
     {
       "name": "get_weather",
+      "type": "FUNCTION",
       "output": {
         "content": "Partly cloudy, 62F",
         "additional_kwargs": {},

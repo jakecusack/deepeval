@@ -1,5 +1,4 @@
 from typing import List, Optional, Union
-import json
 from pydantic import BaseModel, ValidationError
 
 from deepeval.test_case import (
@@ -16,9 +15,8 @@ from deepeval.metrics.utils import (
 )
 from deepeval.models import DeepEvalBaseLLM
 from deepeval.metrics.indicator import metric_progress_indicator
-from deepeval.metrics.json_correctness.template import JsonCorrectnessTemplate
 from deepeval.metrics.json_correctness.schema import JsonCorrectnessScoreReason
-from deepeval.utils import get_or_create_event_loop
+from deepeval.utils import get_or_create_event_loop, serialize_to_json
 
 DEFAULT_CORRECT_REASON = "The generated Json matches and is syntactically correct to the expected schema."
 
@@ -33,11 +31,12 @@ class JsonCorrectnessMetric(BaseMetric):
         self,
         expected_schema: BaseModel,
         model: Optional[Union[str, DeepEvalBaseLLM]] = None,
-        threshold: float = 0.5,
+        threshold: Optional[float] = 0.5,
         async_mode: bool = True,
         include_reason: bool = True,
         strict_mode: bool = True,
         verbose_mode: bool = False,
+        flaky: bool = False,
     ):
         self.threshold = 1 if strict_mode else threshold
         self.model, self.using_native_model = initialize_model(model)
@@ -45,6 +44,7 @@ class JsonCorrectnessMetric(BaseMetric):
         self.strict_mode = strict_mode
         self.async_mode = async_mode
         self.verbose_mode = verbose_mode
+        self.flaky = flaky
         self.expected_schema = expected_schema
         self.evaluation_model = self.model.get_model_name()
 
@@ -68,6 +68,8 @@ class JsonCorrectnessMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self, _show_indicator=_show_indicator, _in_component=_in_component
         ):
@@ -92,7 +94,7 @@ class JsonCorrectnessMetric(BaseMetric):
 
                 self.score = 1 if valid_json else 0
                 self.reason = self.generate_reason(test_case.actual_output)
-                self.success = self.score >= self.threshold
+                self.success = self.is_successful()
                 self.verbose_logs = construct_verbose_logs(
                     self,
                     steps=[
@@ -124,6 +126,8 @@ class JsonCorrectnessMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self,
             async_mode=True,
@@ -140,7 +144,7 @@ class JsonCorrectnessMetric(BaseMetric):
 
             self.score = 1 if valid_json else 0
             self.reason = await self.a_generate_reason(test_case.actual_output)
-            self.success = self.score >= self.threshold
+            self.success = self.is_successful()
             self.verbose_logs = construct_verbose_logs(
                 self,
                 steps=[
@@ -159,9 +163,10 @@ class JsonCorrectnessMetric(BaseMetric):
         if is_valid_json:
             return DEFAULT_CORRECT_REASON
 
-        prompt: dict = JsonCorrectnessTemplate.generate_reason(
+        prompt: dict = self._get_prompt(
+            "generate_reason",
             actual_output=actual_output,
-            expected_schema=json.dumps(
+            expected_schema=serialize_to_json(
                 self.expected_schema.model_json_schema(), indent=4
             ),
             is_valid_json=is_valid_json,
@@ -183,9 +188,10 @@ class JsonCorrectnessMetric(BaseMetric):
         if is_valid_json:
             return DEFAULT_CORRECT_REASON
 
-        prompt: dict = JsonCorrectnessTemplate.generate_reason(
+        prompt: dict = self._get_prompt(
+            "generate_reason",
             actual_output=actual_output,
-            expected_schema=json.dumps(
+            expected_schema=serialize_to_json(
                 self.expected_schema.model_json_schema(), indent=4
             ),
             is_valid_json=is_valid_json,
@@ -198,16 +204,6 @@ class JsonCorrectnessMetric(BaseMetric):
             extract_schema=lambda s: s.reason,
             extract_json=lambda data: data["reason"],
         )
-
-    def is_successful(self) -> bool:
-        if self.error is not None:
-            self.success = False
-        else:
-            try:
-                self.success = self.score >= self.threshold
-            except TypeError:
-                self.success = False
-        return self.success
 
     @property
     def __name__(self):

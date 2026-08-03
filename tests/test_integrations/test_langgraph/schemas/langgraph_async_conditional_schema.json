@@ -50,7 +50,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VDk0lMYk7daXAEgVv8a9y8KbHI",
               "service_tier": "default",
@@ -116,7 +116,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VEy9LKBX7ofSDesFHoilCKY1gY",
               "service_tier": "default",
@@ -143,7 +143,8 @@
           }
         ],
         "intent": "research"
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0516-e6b6-7db2-9bd9-875cf315677f",
@@ -184,7 +185,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VDk0lMYk7daXAEgVv8a9y8KbHI",
               "service_tier": "default",
@@ -255,7 +256,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VEy9LKBX7ofSDesFHoilCKY1gY",
               "service_tier": "default",
@@ -281,7 +282,8 @@
             }
           }
         ]
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0516-eb55-7441-a8b6-3111cea5c9b5",
@@ -322,7 +324,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VDk0lMYk7daXAEgVv8a9y8KbHI",
               "service_tier": "default",
@@ -388,7 +390,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VEy9LKBX7ofSDesFHoilCKY1gY",
               "service_tier": "default",
@@ -416,7 +418,8 @@
         ],
         "intent": "research"
       },
-      "output": "__end__"
+      "output": "__end__",
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0516-e6b3-71b1-a593-7199b7bfe9eb",
@@ -457,7 +460,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VDk0lMYk7daXAEgVv8a9y8KbHI",
               "service_tier": "default",
@@ -511,6 +514,7 @@
       "toolsCalled": [
         {
           "name": "research_topic",
+          "type": "FUNCTION",
           "output": {
             "content": "Space research reveals new exoplanets in habitable zones.",
             "additional_kwargs": {},
@@ -525,7 +529,8 @@
             "topic": "space exploration"
           }
         }
-      ]
+      ],
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0516-e6b5-7ff2-9059-fe5e101d661b",
@@ -566,7 +571,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VDk0lMYk7daXAEgVv8a9y8KbHI",
               "service_tier": "default",
@@ -613,7 +618,8 @@
         ],
         "intent": "research"
       },
-      "output": "research"
+      "output": "research",
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0516-e02e-7702-ad69-5382f7eb2c6e",
@@ -659,7 +665,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VDk0lMYk7daXAEgVv8a9y8KbHI",
               "service_tier": "default",
@@ -694,7 +700,8 @@
             }
           }
         ]
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0516-e6b0-7460-8dc4-ba75270db262",
@@ -735,7 +742,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VDk0lMYk7daXAEgVv8a9y8KbHI",
               "service_tier": "default",
@@ -772,7 +779,8 @@
         ],
         "intent": "research"
       },
-      "output": "tools"
+      "output": "tools",
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0516-e02d-7531-b38e-daf3c3685d5a",
@@ -804,7 +812,8 @@
           }
         ],
         "intent": "research"
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0516-e02d-7531-b38e-db080eee84ba",
@@ -826,7 +835,8 @@
         ],
         "intent": "research"
       },
-      "output": "research"
+      "output": "research",
+      "integration": "LangChain"
     }
   ],
   "agentSpans": [],
@@ -874,9 +884,11 @@
         "content": "- Recent space exploration research includes discoveries of new exoplanets located in habitable zones.\n- These findings expand targets for future studies searching for potential life.\n- Continued missions and observations are key to characterizing these exoplanets further.",
         "tool_calls": []
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 261.0,
-      "outputTokenCount": 50.0
+      "outputTokenCount": 50.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     },
     {
       "uuid": "019d0516-e02e-7702-ad69-539c956204f2",
@@ -921,9 +933,11 @@
           }
         ]
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 219.0,
-      "outputTokenCount": 25.0
+      "outputTokenCount": 25.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     }
   ],
   "retrieverSpans": [],
@@ -948,7 +962,8 @@
         "id": "18cfde42-b426-4e60-a378-904c9ed5b05d",
         "tool_call_id": "call_sCKihaRBMdiBGIPV3re9ErVe",
         "status": "success"
-      }
+      },
+      "integration": "LangChain"
     }
   ],
   "startTime": "2026-03-19T07:54:38.508Z",
@@ -1002,7 +1017,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2VDk0lMYk7daXAEgVv8a9y8KbHI",
           "service_tier": "default",
@@ -1068,7 +1083,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2VEy9LKBX7ofSDesFHoilCKY1gY",
           "service_tier": "default",
@@ -1100,6 +1115,7 @@
   "toolsCalled": [
     {
       "name": "research_topic",
+      "type": "FUNCTION",
       "output": {
         "content": "Space research reveals new exoplanets in habitable zones.",
         "additional_kwargs": {},

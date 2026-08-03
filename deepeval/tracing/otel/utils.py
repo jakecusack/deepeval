@@ -1,6 +1,7 @@
 import json
+from threading import Lock
 
-from typing import List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple, Any
 from opentelemetry.sdk.trace.export import ReadableSpan
 
 from deepeval.test_case.api import create_api_test_case
@@ -11,6 +12,30 @@ from deepeval.tracing import trace_manager, BaseSpan
 from deepeval.tracing.utils import make_json_serializable
 
 GEN_AI_OPERATION_NAMES = ["chat", "generate_content", "text_completion"]
+
+# Pending-metrics overlay: in-process side-channel for ``List[BaseMetric]``,
+# which can't fit in OTel attrs (primitives only). Writer is
+# ``SpanInterceptor.on_end`` (gated on eval mode); reader is
+# ``ConfidentSpanExporter`` after rebuilding the span from attrs. Keyed by
+# deepeval span uuid (16-char hex of OTel span_id). Pop semantics + eval gate
+# = no unbounded growth. Distinct from ``metric_collection: str``, which is a
+# server-side online-eval reference and rides along as a normal OTel attr.
+_pending_metrics_lock = Lock()
+_pending_metrics_overlay: Dict[str, List[Any]] = {}
+
+
+def stash_pending_metrics(uuid: str, metrics: Optional[List[Any]]) -> None:
+    """Stash span-level metrics for the exporter to pick up. No-op when empty."""
+    if not metrics:
+        return
+    with _pending_metrics_lock:
+        _pending_metrics_overlay[uuid] = list(metrics)
+
+
+def pop_pending_metrics(uuid: str) -> Optional[List[Any]]:
+    """One-shot retrieve metrics for ``uuid``; returns None if absent."""
+    with _pending_metrics_lock:
+        return _pending_metrics_overlay.pop(uuid, None)
 
 
 def to_hex_string(id_value: int | bytes, length: int = 32) -> str:
@@ -524,12 +549,75 @@ def check_pydantic_ai_agent_input_output(
     system_instructions = []
     system_instruction_raw = span.attributes.get("gen_ai.system_instructions")
     if system_instruction_raw and isinstance(system_instruction_raw, str):
+        try:
+            parsed_system_instructions = json.loads(system_instruction_raw)
+        except (json.JSONDecodeError, ValueError):
+            # Some integrations (e.g. the OpenTelemetry .NET SDK) emit
+            # gen_ai.system_instructions as a plain string rather than JSON.
+            # Preserve it as-is; _flatten_system_instructions handles str.
+            parsed_system_instructions = system_instruction_raw
         system_instructions = _flatten_system_instructions(
-            json.loads(system_instruction_raw)
+            parsed_system_instructions
         )
 
     input_val = _flatten_input(input_val)
     return system_instructions + input_val, output_val
+
+
+def check_pydantic_ai_tools_called(
+    span: ReadableSpan,
+) -> Optional[List[ToolCall]]:
+    """Extract tool calls (and their results) from pydantic-ai message history
+
+    Tool calls live inside `pydantic_ai.all_messages` as parts of type
+    `tool_call` ({id, name, arguments}) paired with `tool_call_response`
+    parts ({id, name, result}). We rebuild structured `ToolCall` objects,
+    matching responses to call by `id`.
+    """
+    try:
+        normalized = normalize_pydantic_ai_messages(span)
+        if not normalized:
+            return None
+
+        calls_by_id: dict = {}
+        ordered: List[ToolCall] = []
+
+        for message in normalized:
+            if not isinstance(message, dict):
+                continue
+            for part in message.get("parts", []) or []:
+                if not isinstance(part, dict):
+                    continue
+                part_type = part.get("type")
+
+                if part_type == "tool_call":
+                    raw_args = part.get("arguments")
+                    input_parameters = {}
+                    if isinstance(raw_args, str):
+                        try:
+                            input_parameters = json.loads(raw_args)
+                        except Exception:
+                            input_parameters = {}
+                    elif isinstance(raw_args, dict):
+                        input_parameters = raw_args
+
+                    tool_call = ToolCall(
+                        name=part.get("name", ""),
+                        input_parameters=input_parameters,
+                    )
+                    ordered.append(tool_call)
+                    call_id = part.get("id")
+                    if call_id is not None:
+                        calls_by_id[call_id] = tool_call
+
+                elif part_type == "tool_call_response":
+                    call_id = part.get("id")
+                    if call_id in calls_by_id:
+                        calls_by_id[call_id].output = part.get("result")
+
+        return ordered or None
+    except Exception:
+        return None
 
 
 def check_tool_output(span: ReadableSpan):

@@ -1,4 +1,4 @@
-from typing import List, Optional, Union, Type, Tuple
+from typing import List, Optional, Union, Tuple
 import asyncio
 import itertools
 from deepeval.test_case import ConversationalTestCase, MultiTurnParams, Turn
@@ -9,7 +9,6 @@ from deepeval.utils import (
 )
 from deepeval.metrics.utils import (
     construct_verbose_logs,
-    trimAndLoadJson,
     check_conversational_test_case_params,
     get_unit_interactions,
     get_turns_in_sliding_window,
@@ -18,9 +17,6 @@ from deepeval.metrics.utils import (
     a_generate_with_schema_and_extract,
 )
 from deepeval.models import DeepEvalBaseLLM
-from deepeval.metrics.turn_faithfulness.template import (
-    TurnFaithfulnessTemplate,
-)
 from deepeval.metrics.indicator import metric_progress_indicator
 from deepeval.metrics.turn_faithfulness.schema import (
     FaithfulnessVerdict,
@@ -32,6 +28,16 @@ from deepeval.metrics.turn_faithfulness.schema import (
 )
 
 
+def _turn_faithfulness_limit_description(
+    extraction_limit: Optional[int],
+) -> str:
+    if extraction_limit is None:
+        return "factual, explicit truths"
+    if extraction_limit == 1:
+        return "one factual, explicit truth"
+    return f"{extraction_limit} factual, explicit truths"
+
+
 class TurnFaithfulnessMetric(BaseConversationalMetric):
     _required_test_case_params: List[MultiTurnParams] = [
         MultiTurnParams.ROLE,
@@ -41,7 +47,7 @@ class TurnFaithfulnessMetric(BaseConversationalMetric):
 
     def __init__(
         self,
-        threshold: float = 0.5,
+        threshold: Optional[float] = 0.5,
         model: Optional[Union[str, DeepEvalBaseLLM]] = None,
         include_reason: bool = True,
         async_mode: bool = True,
@@ -50,9 +56,7 @@ class TurnFaithfulnessMetric(BaseConversationalMetric):
         truths_extraction_limit: Optional[int] = None,
         penalize_ambiguous_claims: bool = False,
         window_size: int = 10,
-        evaluation_template: Type[
-            TurnFaithfulnessTemplate
-        ] = TurnFaithfulnessTemplate,
+        flaky: bool = False,
     ):
         self.threshold = 1 if strict_mode else threshold
         self.model, self.using_native_model = initialize_model(model)
@@ -61,7 +65,7 @@ class TurnFaithfulnessMetric(BaseConversationalMetric):
         self.async_mode = async_mode
         self.strict_mode = strict_mode
         self.verbose_mode = verbose_mode
-        self.evaluation_template = evaluation_template
+        self.flaky = flaky
         self.penalize_ambiguous_claims = penalize_ambiguous_claims
         self.window_size = window_size
 
@@ -88,6 +92,8 @@ class TurnFaithfulnessMetric(BaseConversationalMetric):
         multimodal = test_case.multimodal
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self, _show_indicator=_show_indicator, _in_component=_in_component
         ):
@@ -115,7 +121,7 @@ class TurnFaithfulnessMetric(BaseConversationalMetric):
                         self._get_faithfulness_scores(window, multimodal)
                     )
                 self.score = self._calculate_score(scores)
-                self.success = self.score >= self.threshold
+                self.success = self.is_successful()
                 self.reason = self._generate_reason(scores)
                 verbose_steps = self._get_verbose_steps(scores)
                 self.verbose_logs = construct_verbose_logs(
@@ -148,6 +154,8 @@ class TurnFaithfulnessMetric(BaseConversationalMetric):
         multimodal = test_case.multimodal
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self,
             async_mode=True,
@@ -173,7 +181,7 @@ class TurnFaithfulnessMetric(BaseConversationalMetric):
                 tasks.append(get_individual_scores(window))
             await asyncio.gather(*tasks)
             self.score = self._calculate_score(scores)
-            self.success = self.score >= self.threshold
+            self.success = self.is_successful()
             self.reason = await self._a_generate_reason(scores)
             verbose_steps = self._get_verbose_steps(scores)
             self.verbose_logs = construct_verbose_logs(
@@ -261,9 +269,12 @@ class TurnFaithfulnessMetric(BaseConversationalMetric):
     async def _a_generate_truths(
         self, retrieval_context: str, multimodal: bool
     ) -> List[str]:
-        prompt = self.evaluation_template.generate_truths(
+        prompt = self._get_prompt(
+            "generate_truths",
             reference_context="\n\n".join(retrieval_context),
-            extraction_limit=self.truths_extraction_limit,
+            limit_description=_turn_faithfulness_limit_description(
+                self.truths_extraction_limit
+            ),
             multimodal=multimodal,
         )
 
@@ -278,9 +289,12 @@ class TurnFaithfulnessMetric(BaseConversationalMetric):
     def _generate_truths(
         self, retrieval_context: str, multimodal: bool
     ) -> List[str]:
-        prompt = self.evaluation_template.generate_truths(
+        prompt = self._get_prompt(
+            "generate_truths",
             reference_context="\n\n".join(retrieval_context),
-            extraction_limit=self.truths_extraction_limit,
+            limit_description=_turn_faithfulness_limit_description(
+                self.truths_extraction_limit
+            ),
             multimodal=multimodal,
         )
 
@@ -295,7 +309,8 @@ class TurnFaithfulnessMetric(BaseConversationalMetric):
     async def _a_generate_claims(
         self, user_content: str, assistant_content: str, multimodal: bool
     ) -> List[str]:
-        prompt = self.evaluation_template.generate_claims(
+        prompt = self._get_prompt(
+            "generate_claims",
             input=user_content,
             assistant_output=assistant_content,
             multimodal=multimodal,
@@ -312,7 +327,8 @@ class TurnFaithfulnessMetric(BaseConversationalMetric):
     def _generate_claims(
         self, user_content: str, assistant_content: str, multimodal: bool
     ) -> List[str]:
-        prompt = self.evaluation_template.generate_claims(
+        prompt = self._get_prompt(
+            "generate_claims",
             input=user_content,
             assistant_output=assistant_content,
             multimodal=multimodal,
@@ -334,7 +350,8 @@ class TurnFaithfulnessMetric(BaseConversationalMetric):
 
         verdicts: List[FaithfulnessVerdict] = []
 
-        prompt = self.evaluation_template.generate_verdicts(
+        prompt = self._get_prompt(
+            "generate_verdicts",
             claims=claims,
             reference_context="\n\n".join(truths),
             multimodal=multimodal,
@@ -356,7 +373,8 @@ class TurnFaithfulnessMetric(BaseConversationalMetric):
 
         verdicts: List[FaithfulnessVerdict] = []
 
-        prompt = self.evaluation_template.generate_verdicts(
+        prompt = self._get_prompt(
+            "generate_verdicts",
             claims=claims,
             reference_context="\n\n".join(truths),
             multimodal=multimodal,
@@ -375,7 +393,8 @@ class TurnFaithfulnessMetric(BaseConversationalMetric):
     ) -> Tuple[float, str]:
         number_of_verdicts = len(verdicts)
         if number_of_verdicts == 0:
-            return 1
+            reason = "<no claims to verify>" if self.include_reason else None
+            return 1.0, reason
 
         faithfulness_count = 0
         for verdict in verdicts:
@@ -401,7 +420,8 @@ class TurnFaithfulnessMetric(BaseConversationalMetric):
     ) -> Tuple[float, str]:
         number_of_verdicts = len(verdicts)
         if number_of_verdicts == 0:
-            return 1
+            reason = "<no claims to verify>" if self.include_reason else None
+            return 1.0, reason
 
         faithfulness_count = 0
         for verdict in verdicts:
@@ -435,7 +455,8 @@ class TurnFaithfulnessMetric(BaseConversationalMetric):
             if verdict.verdict.strip().lower() == "no":
                 contradictions.append(verdict.reason)
 
-        prompt = self.evaluation_template.generate_reason(
+        prompt = self._get_prompt(
+            "generate_reason",
             contradictions=contradictions,
             score=format(score, ".2f"),
             multimodal=multimodal,
@@ -458,7 +479,8 @@ class TurnFaithfulnessMetric(BaseConversationalMetric):
             if verdict.verdict.strip().lower() == "no":
                 contradictions.append(verdict.reason)
 
-        prompt = self.evaluation_template.generate_reason(
+        prompt = self._get_prompt(
+            "generate_reason",
             contradictions=contradictions,
             score=format(score, ".2f"),
             multimodal=multimodal,
@@ -501,8 +523,11 @@ class TurnFaithfulnessMetric(BaseConversationalMetric):
         for score in scores:
             reasons.append(score.reason)
 
-        prompt = self.evaluation_template.generate_final_reason(
-            self.score, self.success, reasons
+        prompt = self._get_prompt(
+            "generate_final_reason",
+            final_score=self.score,
+            success=self.success,
+            reasons=reasons,
         )
 
         return generate_with_schema_and_extract(
@@ -526,8 +551,11 @@ class TurnFaithfulnessMetric(BaseConversationalMetric):
         for score in scores:
             reasons.append(score.reason)
 
-        prompt = self.evaluation_template.generate_final_reason(
-            self.score, self.success, reasons
+        prompt = self._get_prompt(
+            "generate_final_reason",
+            final_score=self.score,
+            success=self.success,
+            reasons=reasons,
         )
 
         return await a_generate_with_schema_and_extract(
@@ -548,16 +576,6 @@ class TurnFaithfulnessMetric(BaseConversationalMetric):
         for score in scores:
             total_score += score.score
         return total_score / number_of_scores
-
-    def is_successful(self) -> bool:
-        if self.error is not None:
-            self.success = False
-        else:
-            try:
-                self.success = self.score >= self.threshold
-            except:
-                self.success = False
-        return self.success
 
     @property
     def __name__(self):

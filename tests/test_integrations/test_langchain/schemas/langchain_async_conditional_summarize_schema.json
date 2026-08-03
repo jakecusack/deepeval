@@ -48,7 +48,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2MIUFEQPvnEQIkC7rF1lcXtjDji",
               "service_tier": "default",
@@ -113,7 +113,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2MLyPnUUmnz0x1X0LguKoWECTmS",
               "service_tier": "default",
@@ -143,6 +143,7 @@
       "toolsCalled": [
         {
           "name": "summarize_text",
+          "type": "FUNCTION",
           "output": {
             "content": "Summary: AI is transforming industries worldwide.",
             "additional_kwargs": {},
@@ -156,7 +157,8 @@
             "text": "AI is transforming industries worldwide."
           }
         }
-      ]
+      ],
+      "integration": "LangChain"
     }
   ],
   "agentSpans": [],
@@ -192,9 +194,11 @@
         "content": "Summary: AI is transforming industries worldwide.",
         "tool_calls": []
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 192.0,
-      "outputTokenCount": 11.0
+      "outputTokenCount": 11.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     },
     {
       "uuid": "019d050e-6f18-72e3-962d-e0e76100309b",
@@ -227,9 +231,11 @@
           }
         ]
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 147.0,
-      "outputTokenCount": 174.0
+      "outputTokenCount": 174.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     }
   ],
   "retrieverSpans": [],
@@ -253,7 +259,8 @@
         "name": "summarize_text",
         "tool_call_id": "call_giBsdKaCodRqVxk83dYj7Pej",
         "status": "success"
-      }
+      },
+      "integration": "LangChain"
     }
   ],
   "startTime": "2026-03-19T07:45:25.272Z",
@@ -306,7 +313,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2MIUFEQPvnEQIkC7rF1lcXtjDji",
           "service_tier": "default",
@@ -371,7 +378,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2MLyPnUUmnz0x1X0LguKoWECTmS",
           "service_tier": "default",
@@ -402,6 +409,7 @@
   "toolsCalled": [
     {
       "name": "summarize_text",
+      "type": "FUNCTION",
       "output": {
         "content": "Summary: AI is transforming industries worldwide.",
         "additional_kwargs": {},

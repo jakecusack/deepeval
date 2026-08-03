@@ -50,7 +50,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VfbtJ0Ai2QWBMiADTz8rDhz8n4",
               "service_tier": "default",
@@ -101,7 +101,7 @@
             }
           },
           {
-            "content": "Cloudy, 68\u00b0F",
+            "content": "Cloudy, 68°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -131,7 +131,7 @@
             "status": "success"
           },
           {
-            "content": "Here\u2019s the info for Tokyo:\n\n- Weather: Cloudy, 68\u00b0F\n- Population: 13,960,000\n- Timezone: JST (UTC+9)\n\nWould you like more details (hourly forecast, population source/year, local time now)?",
+            "content": "Here’s the info for Tokyo:\n\n- Weather: Cloudy, 68°F\n- Population: 13,960,000\n- Timezone: JST (UTC+9)\n\nWould you like more details (hourly forecast, population source/year, local time now)?",
             "additional_kwargs": {
               "refusal": null
             },
@@ -152,7 +152,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2Vir65cAYodveSYICF4TG1G0YSq",
               "service_tier": "default",
@@ -178,7 +178,8 @@
             }
           }
         ]
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-5dba-7531-b258-7082e38a7d9b",
@@ -219,7 +220,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VfbtJ0Ai2QWBMiADTz8rDhz8n4",
               "service_tier": "default",
@@ -270,7 +271,7 @@
             }
           },
           {
-            "content": "Cloudy, 68\u00b0F",
+            "content": "Cloudy, 68°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -304,7 +305,7 @@
       "output": {
         "messages": [
           {
-            "content": "Here\u2019s the info for Tokyo:\n\n- Weather: Cloudy, 68\u00b0F\n- Population: 13,960,000\n- Timezone: JST (UTC+9)\n\nWould you like more details (hourly forecast, population source/year, local time now)?",
+            "content": "Here’s the info for Tokyo:\n\n- Weather: Cloudy, 68°F\n- Population: 13,960,000\n- Timezone: JST (UTC+9)\n\nWould you like more details (hourly forecast, population source/year, local time now)?",
             "additional_kwargs": {
               "refusal": null
             },
@@ -325,7 +326,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2Vir65cAYodveSYICF4TG1G0YSq",
               "service_tier": "default",
@@ -351,7 +352,8 @@
             }
           }
         ]
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-62c2-72f2-82b4-12dbd96f97c7",
@@ -392,7 +394,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VfbtJ0Ai2QWBMiADTz8rDhz8n4",
               "service_tier": "default",
@@ -443,7 +445,7 @@
             }
           },
           {
-            "content": "Cloudy, 68\u00b0F",
+            "content": "Cloudy, 68°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -473,7 +475,7 @@
             "status": "success"
           },
           {
-            "content": "Here\u2019s the info for Tokyo:\n\n- Weather: Cloudy, 68\u00b0F\n- Population: 13,960,000\n- Timezone: JST (UTC+9)\n\nWould you like more details (hourly forecast, population source/year, local time now)?",
+            "content": "Here’s the info for Tokyo:\n\n- Weather: Cloudy, 68°F\n- Population: 13,960,000\n- Timezone: JST (UTC+9)\n\nWould you like more details (hourly forecast, population source/year, local time now)?",
             "additional_kwargs": {
               "refusal": null
             },
@@ -494,7 +496,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2Vir65cAYodveSYICF4TG1G0YSq",
               "service_tier": "default",
@@ -521,7 +523,8 @@
           }
         ]
       },
-      "output": "__end__"
+      "output": "__end__",
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-5db7-7f61-b7e3-fc14a98e42c9",
@@ -562,7 +565,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VfbtJ0Ai2QWBMiADTz8rDhz8n4",
               "service_tier": "default",
@@ -617,7 +620,7 @@
       "output": {
         "messages": [
           {
-            "content": "Cloudy, 68\u00b0F",
+            "content": "Cloudy, 68°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -651,8 +654,9 @@
       "toolsCalled": [
         {
           "name": "get_weather",
+          "type": "FUNCTION",
           "output": {
-            "content": "Cloudy, 68\u00b0F",
+            "content": "Cloudy, 68°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -667,6 +671,7 @@
         },
         {
           "name": "get_timezone",
+          "type": "FUNCTION",
           "output": {
             "content": "JST (UTC+9)",
             "additional_kwargs": {},
@@ -683,6 +688,7 @@
         },
         {
           "name": "get_population",
+          "type": "FUNCTION",
           "output": {
             "content": "13,960,000",
             "additional_kwargs": {},
@@ -697,7 +703,8 @@
             "city": "Tokyo"
           }
         }
-      ]
+      ],
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-5205-7770-b8fb-a1310f9f7cb8",
@@ -742,7 +749,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VfbtJ0Ai2QWBMiADTz8rDhz8n4",
               "service_tier": "default",
@@ -793,7 +800,8 @@
             }
           }
         ]
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-5db6-75e3-86e1-a974383c0fa5",
@@ -834,7 +842,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VfbtJ0Ai2QWBMiADTz8rDhz8n4",
               "service_tier": "default",
@@ -886,7 +894,8 @@
           }
         ]
       },
-      "output": "tools"
+      "output": "tools",
+      "integration": "LangChain"
     }
   ],
   "agentSpans": [],
@@ -910,7 +919,7 @@
         },
         {
           "role": "tool",
-          "content": "Cloudy, 68\u00b0F"
+          "content": "Cloudy, 68°F"
         },
         {
           "role": "tool",
@@ -939,12 +948,14 @@
       ],
       "output": {
         "role": "AI",
-        "content": "Here\u2019s the info for Tokyo:\n\n- Weather: Cloudy, 68\u00b0F\n- Population: 13,960,000\n- Timezone: JST (UTC+9)\n\nWould you like more details (hourly forecast, population source/year, local time now)?",
+        "content": "Here’s the info for Tokyo:\n\n- Weather: Cloudy, 68°F\n- Population: 13,960,000\n- Timezone: JST (UTC+9)\n\nWould you like more details (hourly forecast, population source/year, local time now)?",
         "tool_calls": []
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 303.0,
-      "outputTokenCount": 58.0
+      "outputTokenCount": 58.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     },
     {
       "uuid": "019d0517-5206-7193-8559-ac98147ef02c",
@@ -1003,9 +1014,11 @@
           }
         ]
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 205.0,
-      "outputTokenCount": 195.0
+      "outputTokenCount": 195.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     }
   ],
   "retrieverSpans": [],
@@ -1030,7 +1043,8 @@
         "id": "6414dda9-7946-4717-bdce-44f191fbd8e1",
         "tool_call_id": "call_ipWAY77KMBUkWOci3aAWuL3J",
         "status": "success"
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-5db9-71a1-b34b-14ab34099a42",
@@ -1052,7 +1066,8 @@
         "id": "15bf1f4b-a9af-4645-beef-5cd523a6868e",
         "tool_call_id": "call_cYQ3mKcYa7UuIOeyMIpGAIsd",
         "status": "success"
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-5db8-70d3-9962-163ff71c67bb",
@@ -1066,7 +1081,7 @@
         "city": "Tokyo"
       },
       "output": {
-        "content": "Cloudy, 68\u00b0F",
+        "content": "Cloudy, 68°F",
         "additional_kwargs": {},
         "response_metadata": {},
         "type": "tool",
@@ -1074,7 +1089,8 @@
         "id": "0be334ae-6a26-4f5f-9b6e-7d1a3dc00c37",
         "tool_call_id": "call_qyO8tApOfNSjg9D4ir2vA81j",
         "status": "success"
-      }
+      },
+      "integration": "LangChain"
     }
   ],
   "startTime": "2026-03-19T07:55:07.653Z",
@@ -1132,7 +1148,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2VfbtJ0Ai2QWBMiADTz8rDhz8n4",
           "service_tier": "default",
@@ -1183,7 +1199,7 @@
         }
       },
       {
-        "content": "Cloudy, 68\u00b0F",
+        "content": "Cloudy, 68°F",
         "additional_kwargs": {},
         "response_metadata": {},
         "type": "tool",
@@ -1213,7 +1229,7 @@
         "status": "success"
       },
       {
-        "content": "Here\u2019s the info for Tokyo:\n\n- Weather: Cloudy, 68\u00b0F\n- Population: 13,960,000\n- Timezone: JST (UTC+9)\n\nWould you like more details (hourly forecast, population source/year, local time now)?",
+        "content": "Here’s the info for Tokyo:\n\n- Weather: Cloudy, 68°F\n- Population: 13,960,000\n- Timezone: JST (UTC+9)\n\nWould you like more details (hourly forecast, population source/year, local time now)?",
         "additional_kwargs": {
           "refusal": null
         },
@@ -1234,7 +1250,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2Vir65cAYodveSYICF4TG1G0YSq",
           "service_tier": "default",
@@ -1265,8 +1281,9 @@
   "toolsCalled": [
     {
       "name": "get_weather",
+      "type": "FUNCTION",
       "output": {
-        "content": "Cloudy, 68\u00b0F",
+        "content": "Cloudy, 68°F",
         "additional_kwargs": {},
         "response_metadata": {},
         "type": "tool",
@@ -1281,6 +1298,7 @@
     },
     {
       "name": "get_timezone",
+      "type": "FUNCTION",
       "output": {
         "content": "JST (UTC+9)",
         "additional_kwargs": {},
@@ -1297,6 +1315,7 @@
     },
     {
       "name": "get_population",
+      "type": "FUNCTION",
       "output": {
         "content": "13,960,000",
         "additional_kwargs": {},

@@ -50,7 +50,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VWEekF8N3WWLHi9MaZbLg7xo7w",
               "service_tier": "default",
@@ -96,7 +96,7 @@
             "status": "success"
           },
           {
-            "content": "Done \u2014 5 apples added to your cart. Anything else?",
+            "content": "Done — 5 apples added to your cart. Anything else?",
             "additional_kwargs": {
               "refusal": null
             },
@@ -117,7 +117,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VZSNonsysIwunMiQm6tdBxBvan",
               "service_tier": "default",
@@ -171,7 +171,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VaXzKWhDx7gfSPyatlkB5g1EZH",
               "service_tier": "default",
@@ -216,7 +216,7 @@
             "status": "success"
           },
           {
-            "content": "Coupon applied \u2014 FREESHIP has been added to your order. Would you like to checkout now?",
+            "content": "Coupon applied — FREESHIP has been added to your order. Would you like to checkout now?",
             "additional_kwargs": {
               "refusal": null
             },
@@ -237,7 +237,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VbCMmjW5PFX4K2iS2q4SmEz7I6",
               "service_tier": "default",
@@ -263,7 +263,8 @@
             }
           }
         ]
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-41e1-7ba1-9613-3486dc86d62b",
@@ -304,7 +305,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VWEekF8N3WWLHi9MaZbLg7xo7w",
               "service_tier": "default",
@@ -350,7 +351,7 @@
             "status": "success"
           },
           {
-            "content": "Done \u2014 5 apples added to your cart. Anything else?",
+            "content": "Done — 5 apples added to your cart. Anything else?",
             "additional_kwargs": {
               "refusal": null
             },
@@ -371,7 +372,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VZSNonsysIwunMiQm6tdBxBvan",
               "service_tier": "default",
@@ -425,7 +426,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VaXzKWhDx7gfSPyatlkB5g1EZH",
               "service_tier": "default",
@@ -474,7 +475,7 @@
       "output": {
         "messages": [
           {
-            "content": "Coupon applied \u2014 FREESHIP has been added to your order. Would you like to checkout now?",
+            "content": "Coupon applied — FREESHIP has been added to your order. Would you like to checkout now?",
             "additional_kwargs": {
               "refusal": null
             },
@@ -495,7 +496,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VbCMmjW5PFX4K2iS2q4SmEz7I6",
               "service_tier": "default",
@@ -521,7 +522,8 @@
             }
           }
         ]
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-457c-7093-a1ef-12acddffa0fe",
@@ -562,7 +564,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VWEekF8N3WWLHi9MaZbLg7xo7w",
               "service_tier": "default",
@@ -608,7 +610,7 @@
             "status": "success"
           },
           {
-            "content": "Done \u2014 5 apples added to your cart. Anything else?",
+            "content": "Done — 5 apples added to your cart. Anything else?",
             "additional_kwargs": {
               "refusal": null
             },
@@ -629,7 +631,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VZSNonsysIwunMiQm6tdBxBvan",
               "service_tier": "default",
@@ -683,7 +685,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VaXzKWhDx7gfSPyatlkB5g1EZH",
               "service_tier": "default",
@@ -728,7 +730,7 @@
             "status": "success"
           },
           {
-            "content": "Coupon applied \u2014 FREESHIP has been added to your order. Would you like to checkout now?",
+            "content": "Coupon applied — FREESHIP has been added to your order. Would you like to checkout now?",
             "additional_kwargs": {
               "refusal": null
             },
@@ -749,7 +751,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VbCMmjW5PFX4K2iS2q4SmEz7I6",
               "service_tier": "default",
@@ -776,7 +778,8 @@
           }
         ]
       },
-      "output": "__end__"
+      "output": "__end__",
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-41e0-7801-8cc7-9d647709a66f",
@@ -817,7 +820,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VWEekF8N3WWLHi9MaZbLg7xo7w",
               "service_tier": "default",
@@ -863,7 +866,7 @@
             "status": "success"
           },
           {
-            "content": "Done \u2014 5 apples added to your cart. Anything else?",
+            "content": "Done — 5 apples added to your cart. Anything else?",
             "additional_kwargs": {
               "refusal": null
             },
@@ -884,7 +887,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VZSNonsysIwunMiQm6tdBxBvan",
               "service_tier": "default",
@@ -938,7 +941,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VaXzKWhDx7gfSPyatlkB5g1EZH",
               "service_tier": "default",
@@ -991,6 +994,7 @@
       "toolsCalled": [
         {
           "name": "apply_coupon",
+          "type": "FUNCTION",
           "output": {
             "content": "Free shipping applied",
             "additional_kwargs": {},
@@ -1005,7 +1009,8 @@
             "code": "FREESHIP"
           }
         }
-      ]
+      ],
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-3c33-7dd0-83ce-0c69112271ee",
@@ -1046,7 +1051,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VWEekF8N3WWLHi9MaZbLg7xo7w",
               "service_tier": "default",
@@ -1092,7 +1097,7 @@
             "status": "success"
           },
           {
-            "content": "Done \u2014 5 apples added to your cart. Anything else?",
+            "content": "Done — 5 apples added to your cart. Anything else?",
             "additional_kwargs": {
               "refusal": null
             },
@@ -1113,7 +1118,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VZSNonsysIwunMiQm6tdBxBvan",
               "service_tier": "default",
@@ -1171,7 +1176,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VaXzKWhDx7gfSPyatlkB5g1EZH",
               "service_tier": "default",
@@ -1206,7 +1211,8 @@
             }
           }
         ]
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-41df-79f1-bab9-03d80a47c727",
@@ -1247,7 +1253,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VWEekF8N3WWLHi9MaZbLg7xo7w",
               "service_tier": "default",
@@ -1293,7 +1299,7 @@
             "status": "success"
           },
           {
-            "content": "Done \u2014 5 apples added to your cart. Anything else?",
+            "content": "Done — 5 apples added to your cart. Anything else?",
             "additional_kwargs": {
               "refusal": null
             },
@@ -1314,7 +1320,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VZSNonsysIwunMiQm6tdBxBvan",
               "service_tier": "default",
@@ -1368,7 +1374,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2VaXzKWhDx7gfSPyatlkB5g1EZH",
               "service_tier": "default",
@@ -1404,7 +1410,8 @@
           }
         ]
       },
-      "output": "tools"
+      "output": "tools",
+      "integration": "LangChain"
     }
   ],
   "agentSpans": [],
@@ -1436,7 +1443,7 @@
         },
         {
           "role": "ai",
-          "content": "Done \u2014 5 apples added to your cart. Anything else?"
+          "content": "Done — 5 apples added to your cart. Anything else?"
         },
         {
           "role": "human",
@@ -1477,12 +1484,14 @@
       ],
       "output": {
         "role": "AI",
-        "content": "Coupon applied \u2014 FREESHIP has been added to your order. Would you like to checkout now?",
+        "content": "Coupon applied — FREESHIP has been added to your order. Would you like to checkout now?",
         "tool_calls": []
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 352.0,
-      "outputTokenCount": 23.0
+      "outputTokenCount": 23.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     },
     {
       "uuid": "019d0517-3c33-7dd0-83ce-0c7cb1cb0713",
@@ -1511,7 +1520,7 @@
         },
         {
           "role": "ai",
-          "content": "Done \u2014 5 apples added to your cart. Anything else?"
+          "content": "Done — 5 apples added to your cart. Anything else?"
         },
         {
           "role": "human",
@@ -1555,9 +1564,11 @@
           }
         ]
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 318.0,
-      "outputTokenCount": 26.0
+      "outputTokenCount": 26.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     }
   ],
   "retrieverSpans": [],
@@ -1582,7 +1593,8 @@
         "id": "415cd306-fe90-4c79-830c-4fa2689151fa",
         "tool_call_id": "call_1wYqq5af9e79yhRngvD9L1MT",
         "status": "success"
-      }
+      },
+      "integration": "LangChain"
     }
   ],
   "startTime": "2026-03-19T07:55:02.066Z",
@@ -1637,7 +1649,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2VWEekF8N3WWLHi9MaZbLg7xo7w",
           "service_tier": "default",
@@ -1683,7 +1695,7 @@
         "status": "success"
       },
       {
-        "content": "Done \u2014 5 apples added to your cart. Anything else?",
+        "content": "Done — 5 apples added to your cart. Anything else?",
         "additional_kwargs": {
           "refusal": null
         },
@@ -1704,7 +1716,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2VZSNonsysIwunMiQm6tdBxBvan",
           "service_tier": "default",
@@ -1758,7 +1770,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2VaXzKWhDx7gfSPyatlkB5g1EZH",
           "service_tier": "default",
@@ -1803,7 +1815,7 @@
         "status": "success"
       },
       {
-        "content": "Coupon applied \u2014 FREESHIP has been added to your order. Would you like to checkout now?",
+        "content": "Coupon applied — FREESHIP has been added to your order. Would you like to checkout now?",
         "additional_kwargs": {
           "refusal": null
         },
@@ -1824,7 +1836,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2VbCMmjW5PFX4K2iS2q4SmEz7I6",
           "service_tier": "default",
@@ -1855,6 +1867,7 @@
   "toolsCalled": [
     {
       "name": "apply_coupon",
+      "type": "FUNCTION",
       "output": {
         "content": "Free shipping applied",
         "additional_kwargs": {},

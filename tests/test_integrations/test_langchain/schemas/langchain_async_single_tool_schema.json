@@ -48,7 +48,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2LwsjC7Uqp5TRj0CMgjI3wLrW38",
               "service_tier": "default",
@@ -92,7 +92,7 @@
             "status": "success"
           },
           {
-            "content": "San Francisco: Foggy, 58\u00b0F.",
+            "content": "San Francisco: Foggy, 58°F.",
             "additional_kwargs": {
               "refusal": null
             },
@@ -113,7 +113,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2Ly5uHTUSqIBQ0IpoPcdzTPSqdo",
               "service_tier": "default",
@@ -143,6 +143,7 @@
       "toolsCalled": [
         {
           "name": "get_weather",
+          "type": "FUNCTION",
           "output": {
             "content": "Foggy, 58F",
             "additional_kwargs": {},
@@ -156,7 +157,8 @@
             "city": "San Francisco"
           }
         }
-      ]
+      ],
+      "integration": "LangChain"
     }
   ],
   "agentSpans": [],
@@ -189,12 +191,14 @@
       ],
       "output": {
         "role": "AI",
-        "content": "San Francisco: Foggy, 58\u00b0F.",
+        "content": "San Francisco: Foggy, 58°F.",
         "tool_calls": []
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 180.0,
-      "outputTokenCount": 13.0
+      "outputTokenCount": 13.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     },
     {
       "uuid": "019d050e-189e-7411-bb7d-8dfcc83709da",
@@ -227,9 +231,11 @@
           }
         ]
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 145.0,
-      "outputTokenCount": 88.0
+      "outputTokenCount": 88.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     }
   ],
   "retrieverSpans": [],
@@ -253,7 +259,8 @@
         "name": "get_weather",
         "tool_call_id": "call_eMEy870c2UznwZb4zSDTBS0z",
         "status": "success"
-      }
+      },
+      "integration": "LangChain"
     }
   ],
   "startTime": "2026-03-19T07:45:03.134Z",
@@ -310,7 +317,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2LwsjC7Uqp5TRj0CMgjI3wLrW38",
           "service_tier": "default",
@@ -354,7 +361,7 @@
         "status": "success"
       },
       {
-        "content": "San Francisco: Foggy, 58\u00b0F.",
+        "content": "San Francisco: Foggy, 58°F.",
         "additional_kwargs": {
           "refusal": null
         },
@@ -375,7 +382,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2Ly5uHTUSqIBQ0IpoPcdzTPSqdo",
           "service_tier": "default",
@@ -406,6 +413,7 @@
   "toolsCalled": [
     {
       "name": "get_weather",
+      "type": "FUNCTION",
       "output": {
         "content": "Foggy, 58F",
         "additional_kwargs": {},

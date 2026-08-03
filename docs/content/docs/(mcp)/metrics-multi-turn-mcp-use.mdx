@@ -40,14 +40,15 @@ metric = MultiTurnMCPUseMetric(threshold=0.5)
 evaluate(test_cases=[convo_test_case], metrics=[metric])
 ```
 
-There are **SIX** optional parameters when creating a `MultiTurnMCPUseMetric`:
+There are **SEVEN** optional parameters when creating a `MultiTurnMCPUseMetric`:
 
-- [Optional] `threshold`: a float representing the minimum passing threshold, defaulted to 0.5.
+- [Optional] `threshold`: a float representing the minimum passing threshold. Can also be set to `None` to run the metric in [score-only mode](/docs/metrics-introduction#metric-thresholds). Defaulted to `0.5`.
 - [Optional] `model`: a string specifying which of OpenAI's GPT models to use, **OR** [any custom LLM model](/docs/metrics-introduction#using-a-custom-llm) of type `DeepEvalBaseLLM`. Defaulted to <DefaultLLMModel />.
 - [Optional] `include_reason`: a boolean which when set to `True`, will include a reason for its evaluation score. Defaulted to `True`.
 - [Optional] `strict_mode`: a boolean which when set to `True`, enforces a binary metric score: 1 for perfection, 0 otherwise. It also overrides the current threshold and sets it to 1. Defaulted to `False`.
 - [Optional] `async_mode`: a boolean which when set to `True`, enables [concurrent execution within the `measure()` method.](/docs/metrics-introduction#measuring-a-metric-in-async) Defaulted to `True`.
 - [Optional] `verbose_mode`: a boolean which when set to `True`, prints the intermediate steps used to calculate said metric to the console, as outlined in the [How Is It Calculated](#how-is-it-calculated) section. Defaulted to `False`.
+- [Optional] `flaky`: a boolean which when set to `True`, [marks the metric as flaky](/docs/metrics-introduction#flaky-metrics). Defaulted to `False`.
 
 ### As a standalone
 
@@ -72,3 +73,59 @@ The `MultiTurnMCPUseMetric` score is calculated according to the following equat
 
 - The **AlignmentScore** is judged by an evaluation model based on which primitives were called and their generated arguments with respect to the task.
 - **MCP Interactions** are the number of times the LLM app uses the MCP server's capabilities.
+
+## FAQs
+
+<FAQs
+  qas={[
+    {
+      question:
+        "Should I reach for this over the single-turn MCP Use metric?",
+      answer: (
+        <>
+          Use <code>MultiTurnMCPUseMetric</code> for one score over MCP usage
+          spanning several <code>turns</code>. For a single{" "}
+          <code>input</code>/<code>actual_output</code>, use single-turn{" "}
+          <code>MCPUseMetric</code> on an <code>LLMTestCase</code>.
+        </>
+      ),
+    },
+    {
+      question:
+        "Where do the called primitives go in a `ConversationalTestCase`?",
+      answer: (
+        <>
+          <code>turns</code> and <code>mcp_servers</code> go on the{" "}
+          <a href="https://www.deepeval.com/docs/evaluation-multiturn-test-cases">
+            ConversationalTestCase
+          </a>
+          , but <code>mcp_tools_called</code>,{" "}
+          <code>mcp_resources_called</code>, and <code>mcp_prompts_called</code>{" "}
+          live <em>inside each turn</em>, not at the top level.
+        </>
+      ),
+    },
+    {
+      question:
+        "One turn misused a tool — how do I find which turn dragged the score down?",
+      answer: (
+        <>
+          One bad call lowers the averaged score. Enable{" "}
+          <code>verbose_mode</code> to print per-interaction reasoning and
+          pinpoint the offending turn.
+        </>
+      ),
+    },
+    {
+      question:
+        "Why is my score lower when the agent makes more MCP calls?",
+      answer: (
+        <>
+          The denominator is total MCP interactions, so every extra call is held
+          to the same alignment standard. Noisy or redundant calls pull the
+          average down.
+        </>
+      ),
+    },
+  ]}
+/>

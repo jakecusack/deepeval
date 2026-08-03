@@ -1,7 +1,7 @@
 ---
 id: getting-started
 title: DeepEval 5-min Quickstart
-sidebar_label: 5-min Quickstart
+sidebar_label: Human 5-min Quickstart
 ---
 
 import { ASSETS } from "@site/src/assets";
@@ -18,8 +18,10 @@ By the end of this quickstart, you should be able to:
 - Know where to go next for datasets, synthetic data, integrations, and the
   Confident AI platform.
 
-:::info
-New to DeepEval? Checkout the [introduction](/introduction) to learn more about this framework.
+New to DeepEval? Checkout the [introduction](/docs/introduction) to learn more about this framework.
+
+:::tip[Prefer to have your coding agent do this for you?]
+This page walks you through setting up DeepEval **by hand**. If you'd rather install a skill in **Cursor, Claude Code, Codex, Windsurf**, or any other AI coding tool — and have your coding agent write the test suite, run `deepeval test run`, and iterate on failures for you — start at the **[5-min Vibe Coder Quickstart →](/docs/vibe-coder-quickstart)** instead.
 :::
 
 ## Installation
@@ -35,6 +37,13 @@ pip install -U deepeval
 ```bash
 deepeval login
 ```
+
+Your browser handles authentication only. After you sign in or create an
+account, return to the terminal to enter your name and organization, confirm
+the prefilled first-project name, or select one of your existing projects.
+DeepEval creates and saves a dedicated project API key automatically. For CI
+or other non-interactive environments, pass an existing key with
+`deepeval login --api-key ...`.
 
 <details>
 
@@ -204,12 +213,13 @@ The `deepeval view` command requires that the test run that you ran above has be
 deepeval login
 ```
 
-After you've pasted in your API key, Confident AI will **generate testing reports and automate regression testing** whenever you run a test run to evaluate your LLM application inside any environment, at any scale, anywhere.
+After you've logged in, Confident AI will **generate testing reports and automate regression testing** whenever you run a test run to evaluate your LLM application inside any environment, at any scale, anywhere.
 
 <VideoDisplayer
   src={ASSETS.evaluationOverview}
   confidentUrl="/docs/getting-started/setup"
-  label="Watch Full Guide on Confident AI"
+  label="Watch full guide on Confident AI"
+  description="A complete walkthrough of running and analyzing your first evals."
 />
 
 **Once you've run more than one test run**, you'll be able to use the [regression testing page](https://www.confident-ai.com/docs/llm-evaluation/dashboards/ab-regression-testing) shown near the end of the video. Green rows indicate that your LLM has shown improvement on specific test cases, whereas red rows highlight areas of regression.
@@ -236,65 +246,41 @@ While end-to-end evals treat your LLM app as a black-box, you also evaluate **in
 
 <ImageDisplayer src={ASSETS.componentLevelEvals} alt="component level evals" />
 
-First paste in the following code:
+First, create a small dataset to evaluate against:
 
-```python title="main.py"
-from deepeval.tracing import observe, update_current_span
-from deepeval.test_case import LLMTestCase
+```python
 from deepeval.dataset import EvaluationDataset, Golden
-from deepeval.metrics import AnswerRelevancyMetric
 
-# 1. Decorate your app
-@observe()
-def llm_app(input: str):
-  # 2. Decorate components with metrics you wish to evaluate or debug
-  @observe(metrics=[AnswerRelevancyMetric()])
-  def inner_component():
-      # 3. Create test case at runtime
-      update_current_span(test_case=LLMTestCase(input="Why is the blue sky?", actual_output="You mean why is the sky blue?"))
-
-  return inner_component()
-
-# 4. Create dataset
-dataset = EvaluationDataset(goldens=[Golden(input="Test input")])
-
-# 5. Loop through dataset
-for golden in dataset.evals_iterator():
-  # 6. Call LLM app
-  llm_app(golden.input)
+dataset = EvaluationDataset(goldens=[Golden(input="Why is the sky blue?")])
 ```
 
-Then run `python main.py` to run a **component-level** eval:
+Pick your stack below, paste the snippet, and run it. Every integration ships an **Async** sample (the default — runs goldens concurrently) and a **Sync** sample (one golden at a time, useful for debugging or rate-limited providers):
+
+<include cwd>snippets/evaluation/component-level-agent-framework-tabs.mdx</include>
+
+Then run the file (`python main.py`, `python langchain_app.py`, etc.):
 
 ```bash
 python main.py
 ```
 
-🎉 Congratulations! Your test case should have passed again ✅ Let's breakdown what happened.
+🎉 Congratulations! Your eval should have run ✅ A quick recap of what happened:
 
-- The `@observe` decorate tells `deepeval` where each component is and **creates an LLM trace** at execution time
-- Any `metrics` supplied to `@observe` allows `deepeval` to evaluate that component based on the `LLMTestCase` you create
-- In this example `AnswerRelevancyMetric()` was used to evaluate `inner_component()`
-- The `dataset` specifies the **goldens** which will be used to invoke your `llm_app` during evaluation, which happens in a simple for loop
+- `evals_iterator()` looped through your dataset, capturing one trace per golden.
+- Your integration's adapter (or `@observe`) created spans for the components inside the trace.
+- The `metrics=[...]` you attached to one of those spans scored it once the trace finished.
+- DeepEval aggregated everything into one test run.
 
-Once the for loop has ended, `deepeval` will aggregate all metrics, test cases in each component, and run evals across them all, before generating the final testing report.
+For sub-agents, retriever scoring, span context customization, and more, see [component-level evaluation](/docs/evaluation-component-level-llm-evals).
 
-:::tip[Persisting runs locally for AI tools]
-Pass `DisplayConfig(results_folder="./evals/prompt-v3")` into `evals_iterator()` to save each run as `test_run_<YYYYMMDD_HHMMSS>.json`, then sweep hyperparameters in a plain `for` loop:
+:::tip
+Every `evals_iterator()` run is snapshotted to disk, so you can open it in a trace-tree TUI — with per-span scores and metric reasons — by running bare `deepeval inspect`. See the [`deepeval inspect` reference](/docs/command-line-interface#inspect) for full details.
 
-```python
-from deepeval.evaluate import DisplayConfig
+<ImageDisplayer
+  src={ASSETS.deepevalTuiInspect}
+  alt="deepeval inspect TUI showing a trace tree with per-span scores and metric reasons"
+/>
 
-for temp in [0.0, 0.4, 0.8]:
-    for golden in dataset.evals_iterator(
-        metrics=[AnswerRelevancyMetric()],
-        hyperparameters={"model": "gpt-4o-mini", "temperature": temp},
-        display_config=DisplayConfig(results_folder="./evals/prompt-v3"),
-    ):
-        llm_app(golden.input)
-```
-
-The folder then holds one file per run — hyperparameters, metric reasons, and scores all live inside each file — so Cursor or Claude Code can `ls` the folder and read the runs directly. See [Saving test runs locally](/docs/evaluation-flags-and-configs#saving-test-runs-locally) for the full layout options.
 :::
 
 ## DeepEval for Online Evals
@@ -337,7 +323,8 @@ Evals on traces are [end-to-end evaluations](/docs/evaluation-end-to-end-llm-eva
 <VideoDisplayer
   src={ASSETS.tracingTraces}
   confidentUrl="/docs/llm-tracing/introduction"
-  label="Trace-Level Evals in Production"
+  label="Trace-level evals in production"
+  description="Score entire executions end-to-end on live traffic."
 />
 
 </Tab>
@@ -348,7 +335,8 @@ Spans make up a trace and evals on spans represents [component-level evaluations
 <VideoDisplayer
   src={ASSETS.tracingSpans}
   confidentUrl="/docs/llm-tracing/introduction"
-  label="Span-Level Evals in Production"
+  label="Span-level evals in production"
+  description="Evaluate individual components like tool calls and retrievals inside each trace."
 />
 
 </Tab>
@@ -359,7 +347,8 @@ Threads are made up of **one or more traces**, and represents a multi-turn inter
 <VideoDisplayer
   src={ASSETS.tracingThreads}
   confidentUrl="/docs/llm-tracing/introduction"
-  label="Thread (conversation) Evals in Production"
+  label="Thread (conversation) evals in production"
+  description="Group traces into threads to evaluate whole conversations."
 />
 
 </Tab>

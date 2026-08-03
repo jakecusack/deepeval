@@ -48,7 +48,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2NNAONaHD6LEjrhIHZCVhziw0Co",
               "service_tier": "default",
@@ -92,7 +92,7 @@
             "status": "success"
           },
           {
-            "content": "Current weather in Tokyo: Cloudy, 68\u00b0F (\u224820\u00b0C).",
+            "content": "Current weather in Tokyo: Cloudy, 68°F (≈20°C).",
             "additional_kwargs": {
               "refusal": null
             },
@@ -113,7 +113,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2NPkcGQjxEcNm45f2bL0D7irCWP",
               "service_tier": "default",
@@ -143,6 +143,7 @@
       "toolsCalled": [
         {
           "name": "get_weather",
+          "type": "FUNCTION",
           "output": {
             "content": "Cloudy, 68F",
             "additional_kwargs": {},
@@ -156,7 +157,8 @@
             "city": "Tokyo"
           }
         }
-      ]
+      ],
+      "integration": "LangChain"
     }
   ],
   "agentSpans": [],
@@ -197,12 +199,14 @@
       ],
       "output": {
         "role": "AI",
-        "content": "Current weather in Tokyo: Cloudy, 68\u00b0F (\u224820\u00b0C).",
+        "content": "Current weather in Tokyo: Cloudy, 68°F (≈20°C).",
         "tool_calls": []
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 221.0,
-      "outputTokenCount": 153.0
+      "outputTokenCount": 153.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     },
     {
       "uuid": "019d050f-7a4b-72d0-a7b9-06672efb70cd",
@@ -243,9 +247,11 @@
           }
         ]
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 187.0,
-      "outputTokenCount": 87.0
+      "outputTokenCount": 87.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     }
   ],
   "retrieverSpans": [],
@@ -269,7 +275,8 @@
         "name": "get_weather",
         "tool_call_id": "call_8kBSEyy5IF3RGpXedXXRYhZM",
         "status": "success"
-      }
+      },
+      "integration": "LangChain"
     }
   ],
   "startTime": "2026-03-19T07:46:33.674Z",
@@ -325,7 +332,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2NNAONaHD6LEjrhIHZCVhziw0Co",
           "service_tier": "default",
@@ -369,7 +376,7 @@
         "status": "success"
       },
       {
-        "content": "Current weather in Tokyo: Cloudy, 68\u00b0F (\u224820\u00b0C).",
+        "content": "Current weather in Tokyo: Cloudy, 68°F (≈20°C).",
         "additional_kwargs": {
           "refusal": null
         },
@@ -390,7 +397,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2NPkcGQjxEcNm45f2bL0D7irCWP",
           "service_tier": "default",
@@ -421,6 +428,7 @@
   "toolsCalled": [
     {
       "name": "get_weather",
+      "type": "FUNCTION",
       "output": {
         "content": "Cloudy, 68F",
         "additional_kwargs": {},

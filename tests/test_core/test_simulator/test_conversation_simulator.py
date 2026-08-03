@@ -1,10 +1,12 @@
+import os
 from typing import List
 
 import pytest
 
 from deepeval.simulator import (
     ConversationSimulator,
-    ConversationSimulatorTemplate,
+    SimulationTemplate,
+    default_simulation_node,
 )
 from deepeval.test_case.conversational_test_case import (
     ConversationalTestCase,
@@ -18,7 +20,14 @@ from tests.test_core.test_simulator.helpers import (
     sync_callback,
 )
 
+requires_openai_key = pytest.mark.skipif(
+    os.getenv("OPENAI_API_KEY") is None
+    or not os.getenv("OPENAI_API_KEY").strip(),
+    reason="needs OPENAI_API_KEY",
+)
 
+
+@requires_openai_key
 def test_no_existing_turns():
     golden = ConversationalGolden(
         scenario="Purchase a concert ticket",
@@ -43,6 +52,7 @@ def test_no_existing_turns():
     assert isinstance(tc.turns[1].content, str)
 
 
+@requires_openai_key
 def test_existing_turns():
     golden = ConversationalGolden(
         scenario="Ask about availability",
@@ -67,6 +77,7 @@ def test_existing_turns():
     assert isinstance(tc.turns[2].content, str)
 
 
+@requires_openai_key
 def test_stop_early():
     golden = ConversationalGolden(
         scenario="Complete flow",
@@ -88,6 +99,7 @@ def test_stop_early():
     assert isinstance(tc.turns[1].content, str)
 
 
+@requires_openai_key
 def test_invalid_max_user_simulations():
     golden = ConversationalGolden(
         scenario="Any",
@@ -107,7 +119,7 @@ def test_invalid_max_user_simulations():
 
 
 def test_custom_simulation_template_is_used():
-    class FormalTemplate(ConversationSimulatorTemplate):
+    class FormalTemplate(SimulationTemplate):
         @staticmethod
         def simulate_first_user_turn(golden, language):
             return (
@@ -127,7 +139,7 @@ def test_custom_simulation_template_is_used():
         model_callback=static_callback,
         simulator_model=simulator_model,
         async_mode=False,
-        simulation_template=FormalTemplate,
+        simulation_graph=default_simulation_node(template=FormalTemplate),
     )
 
     simulator.simulate([golden], max_user_simulations=1)
@@ -140,44 +152,30 @@ def test_custom_simulation_template_must_inherit_base_template():
         pass
 
     with pytest.raises(TypeError):
-        ConversationSimulator(
-            model_callback=static_callback,
-            simulator_model=StaticSimulatorModel(),
-            async_mode=False,
-            simulation_template=InvalidTemplate,
-        )
+        default_simulation_node(template=InvalidTemplate)
 
 
 def test_custom_simulation_template_validates_first_turn_signature():
-    class InvalidTemplate(ConversationSimulatorTemplate):
+    class InvalidTemplate(SimulationTemplate):
         @staticmethod
         def simulate_first_user_turn(scenario, language):
             return "bad"
 
     with pytest.raises(TypeError):
-        ConversationSimulator(
-            model_callback=static_callback,
-            simulator_model=StaticSimulatorModel(),
-            async_mode=False,
-            simulation_template=InvalidTemplate,
-        )
+        default_simulation_node(template=InvalidTemplate)
 
 
 def test_custom_simulation_template_validates_next_turn_signature():
-    class InvalidTemplate(ConversationSimulatorTemplate):
+    class InvalidTemplate(SimulationTemplate):
         @staticmethod
         def simulate_user_turn(golden, language):
             return "bad"
 
     with pytest.raises(TypeError):
-        ConversationSimulator(
-            model_callback=static_callback,
-            simulator_model=StaticSimulatorModel(),
-            async_mode=False,
-            simulation_template=InvalidTemplate,
-        )
+        default_simulation_node(template=InvalidTemplate)
 
 
+@requires_openai_key
 def test_turn_alternation():
     golden = ConversationalGolden(
         scenario="Purchase a concert ticket",
@@ -201,6 +199,7 @@ def test_turn_alternation():
         assert tc.turns[i].role != tc.turns[i - 1].role
 
 
+@requires_openai_key
 def test_max_simulations_ignores_existing_turns():
     golden = ConversationalGolden(
         scenario="Book a flight",
@@ -233,6 +232,7 @@ def test_max_simulations_ignores_existing_turns():
     assert new_user_turns == max_sims
 
 
+@requires_openai_key
 def test_on_simulation_complete_hook_single_conversation():
     golden = ConversationalGolden(
         scenario="Purchase a concert ticket",
@@ -263,6 +263,7 @@ def test_on_simulation_complete_hook_single_conversation():
     assert hook_calls[0]["test_case"].scenario == golden.scenario
 
 
+@requires_openai_key
 def test_on_simulation_complete_hook_multiple_conversations():
     goldens = [
         ConversationalGolden(

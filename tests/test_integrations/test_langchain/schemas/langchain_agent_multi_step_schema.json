@@ -48,7 +48,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2OG5jQlHTJJOXXr3Dw9UIgKl1bq",
               "service_tier": "default",
@@ -113,7 +113,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2OHWz11GltZ5wqTlfv8jmbN7GZx",
               "service_tier": "default",
@@ -143,6 +143,7 @@
       "toolsCalled": [
         {
           "name": "search_web",
+          "type": "FUNCTION",
           "output": {
             "content": "Apple (AAPL) stock: $178.50, up 1.2%",
             "additional_kwargs": {},
@@ -156,7 +157,8 @@
             "query": "stock price apple"
           }
         }
-      ]
+      ],
+      "integration": "LangChain"
     }
   ],
   "agentSpans": [],
@@ -196,9 +198,11 @@
         "content": "I searched the web for \"stock price apple\" and found a result: Apple (AAPL) stock: $178.50, up 1.2%.",
         "tool_calls": []
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 209.0,
-      "outputTokenCount": 36.0
+      "outputTokenCount": 36.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     },
     {
       "uuid": "019d0510-4de2-7360-9435-7367420e092c",
@@ -235,9 +239,11 @@
           }
         ]
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 161.0,
-      "outputTokenCount": 25.0
+      "outputTokenCount": 25.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     }
   ],
   "retrieverSpans": [],
@@ -261,7 +267,8 @@
         "name": "search_web",
         "tool_call_id": "call_jORAIP3vH9oIs8uDlrUHlfMe",
         "status": "success"
-      }
+      },
+      "integration": "LangChain"
     }
   ],
   "startTime": "2026-03-19T07:47:27.842Z",
@@ -313,7 +320,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2OG5jQlHTJJOXXr3Dw9UIgKl1bq",
           "service_tier": "default",
@@ -378,7 +385,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2OHWz11GltZ5wqTlfv8jmbN7GZx",
           "service_tier": "default",
@@ -409,6 +416,7 @@
   "toolsCalled": [
     {
       "name": "search_web",
+      "type": "FUNCTION",
       "output": {
         "content": "Apple (AAPL) stock: $178.50, up 1.2%",
         "additional_kwargs": {},

@@ -92,17 +92,18 @@ evaluate(test_cases=[test_case], metrics=[metric])
 </Tab>
 </Tabs>
 
-There are **EIGHT** optional parameters when creating a `FaithfulnessMetric`:
+There are **NINE** optional parameters when creating a `FaithfulnessMetric`:
 
-- [Optional] `threshold`: a float representing the minimum passing threshold, defaulted to 0.5.
+- [Optional] `threshold`: a float representing the minimum passing threshold. Can also be set to `None` to run the metric in [score-only mode](/docs/metrics-introduction#metric-thresholds). Defaulted to `0.5`.
 - [Optional] `model`: a string specifying which of OpenAI's GPT models to use, **OR** [any custom LLM model](/docs/metrics-introduction#using-a-custom-llm) of type `DeepEvalBaseLLM`. Defaulted to <DefaultLLMModel />.
 - [Optional] `include_reason`: a boolean which when set to `True`, will include a reason for its evaluation score. Defaulted to `True`.
 - [Optional] `strict_mode`: a boolean which when set to `True`, enforces a binary metric score: 1 for perfection, 0 otherwise. It also overrides the current threshold and sets it to 1. Defaulted to `False`.
 - [Optional] `async_mode`: a boolean which when set to `True`, enables [concurrent execution within the `measure()` method.](/docs/metrics-introduction#measuring-metrics-in-async) Defaulted to `True`.
 - [Optional] `verbose_mode`: a boolean which when set to `True`, prints the intermediate steps used to calculate said metric to the console, as outlined in the [How Is It Calculated](#how-is-it-calculated) section. Defaulted to `False`.
 - [Optional] `truths_extraction_limit`: an int which when set, determines the maximum number of factual truths to extract from the `retrieval_context`. The truths extracted will be used to determine the degree of factual alignment, and will be ordered by importance, decided by your evaluation `model`. Defaulted to `None`.
-- [Optional] `penalize_ambiguous_claims`: a boolean which when set to `True`, will **not** count claims that are ambigious as faithful. Defaulted to `False`.
+- [Optional] `penalize_ambiguous_claims`: a boolean which when set to `True`, will **not** count claims that are ambiguous as faithful. Defaulted to `False`.
 - [Optional] `evaluation_template`: a class of type `FaithfulnessTemplate`, which allows you to [override the default prompts](#customize-your-template) used to compute the `FaithfulnessMetric` score. Defaulted to `deepeval`'s `FaithfulnessTemplate`.
+- [Optional] `flaky`: a boolean which when set to `True`, [marks the metric as flaky](/docs/metrics-introduction#flaky-metrics). Defaulted to `False`.
 
 ### Within components
 
@@ -201,3 +202,61 @@ JSON:
 metric = FaithfulnessMetric(evaluation_template=CustomTemplate)
 metric.measure(...)
 ```
+
+## FAQs
+
+<FAQs
+  qas={[
+    {
+      question: "Is a low faithfulness score a retrieval or a generation problem?",
+      answer: (
+        <>
+          Generation. It grades <code>actual_output</code> against the
+          already-retrieved <code>retrieval_context</code>, so a low score means
+          unsupported claims (a prompt or model issue). Retrieval quality is
+          covered by{" "}
+          <a href="/docs/metrics-contextual-recall">Contextual Recall</a> and{" "}
+          <a href="/docs/metrics-contextual-precision">Contextual Precision</a>.
+        </>
+      ),
+    },
+    {
+      question: "How is Faithfulness different from the Hallucination metric?",
+      answer: (
+        <>
+          Faithfulness checks the <code>actual_output</code> against the
+          retrieved <code>retrieval_context</code> ("is this grounded in what I
+          retrieved?"), while <code>HallucinationMetric</code> compares it
+          against a ground-truth <code>context</code>. Use faithfulness for RAG,
+          hallucination when you have known-correct reference context.
+        </>
+      ),
+    },
+    {
+      question:
+        "My answer relevancy is high but faithfulness is low — what's going on?",
+      answer: (
+        <>
+          The classic confidently-wrong case: an on-topic answer (high{" "}
+          <a href="/docs/metrics-answer-relevancy">answer relevancy</a>) backed
+          by claims your <code>retrieval_context</code> doesn't support. The
+          model is leaning on parametric knowledge instead of retrieved
+          evidence — tighten your prompt to force grounding.
+        </>
+      ),
+    },
+    {
+      question: "Why is a claim I know is true being marked unfaithful?",
+      answer: (
+        <>
+          Faithfulness only rewards claims supported by the{" "}
+          <code>retrieval_context</code> — a real-world truth absent from the
+          retrieved text still counts as unfaithful. Use{" "}
+          <code>truths_extraction_limit</code> to focus on key truths and{" "}
+          <code>penalize_ambiguous_claims</code> to control borderline scoring.
+        </>
+      ),
+    },
+  ]}
+/>
+

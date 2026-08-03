@@ -7,11 +7,16 @@ from pydantic import (
     model_validator,
     AliasChoices,
 )
-from typing import List, Optional, Dict, Literal
+from typing import List, Optional, Dict, Literal, Union
 from copy import deepcopy
 from enum import Enum
 
-from deepeval.test_case import ToolCall, MLLMImage
+from deepeval.test_case import (
+    ToolCall,
+    ToolCallType,
+    MLLMImage,
+    RetrievedContextData,
+)
 from deepeval.test_case.mcp import (
     MCPServer,
     MCPPromptCall,
@@ -57,7 +62,7 @@ class Turn(BaseModel):
     user_id: Optional[str] = Field(
         default=None, validation_alias=AliasChoices("userId", "user_id")
     )
-    retrieval_context: Optional[List[str]] = Field(
+    retrieval_context: Optional[List[Union[str, RetrievedContextData]]] = Field(
         default=None,
         validation_alias=AliasChoices("retrievalContext", "retrieval_context"),
     )
@@ -94,10 +99,22 @@ class Turn(BaseModel):
         self.metadata = value
 
     @property
+    def _mcp_tool_calls(self) -> List:
+        if self.mcp_tools_called is not None:
+            return self.mcp_tools_called
+        return [
+            tool
+            for tool in (self.tools_called or [])
+            if tool.type == ToolCallType.MCP
+        ]
+
+    @property
     def _mcp_interaction(self) -> bool:
-        """Whether this turn involves any MCP interactions."""
+        has_mcp_tools = self.mcp_tools_called is not None or any(
+            tool.type == ToolCallType.MCP for tool in (self.tools_called or [])
+        )
         return (
-            self.mcp_tools_called is not None
+            has_mcp_tools
             or self.mcp_resources_called is not None
             or self.mcp_prompts_called is not None
         )
@@ -198,6 +215,7 @@ class ConversationalTestCase(BaseModel):
     )
     comments: Optional[str] = Field(default=None)
     tags: Optional[List[str]] = Field(default=None)
+    flaky: bool = Field(default=False)
     mcp_servers: Optional[List[MCPServer]] = Field(default=None)
     multimodal: bool = False
 
@@ -230,7 +248,7 @@ class ConversationalTestCase(BaseModel):
         if self.multimodal is True:
             return self
 
-        pattern = r"\[DEEPEVAL:IMAGE:(.*?)\]"
+        pattern = r"\[DEEPEVAL:(?:IMAGE|PDF):(.*?)\]"
         if self.scenario:
             if re.search(pattern, self.scenario) is not None:
                 self.multimodal = True
@@ -249,9 +267,17 @@ class ConversationalTestCase(BaseModel):
                     self.multimodal = True
                     return self
                 if turn.retrieval_context is not None:
-                    self.multimodal = any(
-                        re.search(pattern, context) is not None
-                        for context in turn.retrieval_context
+                    self.multimodal = self.multimodal or any(
+                        re.search(
+                            pattern,
+                            (
+                                c.context
+                                if isinstance(c, RetrievedContextData)
+                                else c
+                            ),
+                        )
+                        for c in turn.retrieval_context
+                        if isinstance(c, (RetrievedContextData, str))
                     )
 
         return self
@@ -268,9 +294,12 @@ class ConversationalTestCase(BaseModel):
         # Ensure `context` is None or a list of strings
         if context is not None:
             if not isinstance(context, list) or not all(
-                isinstance(item, str) for item in context
+                isinstance(item, (str, RetrievedContextData))
+                for item in context
             ):
-                raise TypeError("'context' must be None or a list of strings")
+                raise TypeError(
+                    "'context' must be None or a list of strings or RetrievedContextData"
+                )
 
         if mcp_servers is not None:
             validate_mcp_servers(mcp_servers)
@@ -294,7 +323,7 @@ class ConversationalTestCase(BaseModel):
         return data
 
     def _get_images_mapping(self) -> Dict[str, MLLMImage]:
-        pattern = r"\[DEEPEVAL:IMAGE:(.*?)\]"
+        pattern = r"\[DEEPEVAL:(?:IMAGE|PDF):(.*?)\]"
         image_ids = set()
 
         def extract_ids_from_string(s: Optional[str]) -> None:

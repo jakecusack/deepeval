@@ -1,6 +1,7 @@
 from enum import Enum
 import os
 import json
+from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import Any, Optional, List, Dict, Union, Tuple
 import sys
@@ -23,6 +24,7 @@ from deepeval.test_case import LLMTestCase, ConversationalTestCase
 from deepeval.utils import (
     delete_file_if_exists,
     get_is_running_deepeval,
+    get_test_run_official,
     is_read_only_env,
     open_browser,
     shorten,
@@ -30,6 +32,10 @@ from deepeval.utils import (
     len_short,
 )
 from deepeval.test_run.cache import global_test_run_cache_manager
+from deepeval.telemetry import (
+    LoginPromptSurface,
+    capture_login_prompt_shown,
+)
 from deepeval.constants import CONFIDENT_TEST_CASE_BATCH_SIZE, HIDDEN_DIR
 from deepeval.prompt import (
     PromptMessage,
@@ -57,6 +63,8 @@ else:
 
 TEMP_FILE_PATH = f"{HIDDEN_DIR}/.temp_test_run_data.json"
 LATEST_TEST_RUN_FILE_PATH = f"{HIDDEN_DIR}/.latest_test_run.json"
+# Full TestRun payload (same as timestamped exports); overwritten each run.
+LATEST_FULL_TEST_RUN_FILE_PATH = f"{HIDDEN_DIR}/.latest_run_full.json"
 LATEST_TEST_RUN_DATA_KEY = "testRunData"
 LATEST_TEST_RUN_LINK_KEY = "testRunLink"
 console = Console()
@@ -163,6 +171,7 @@ class TestRun(BaseModel):
     evaluation_cost: Union[float, None] = Field(None, alias="evaluationCost")
     dataset_alias: Optional[str] = Field(None, alias="datasetAlias")
     dataset_id: Optional[str] = Field(None, alias="datasetId")
+    official: bool = False
 
     def add_test_case(
         self, api_test_case: Union[LLMApiTestCase, ConversationalApiTestCase]
@@ -461,6 +470,9 @@ class TestRunManager:
         self.disable_request = False
         self.results_folder: Optional[str] = None
         self.results_subfolder: Optional[str] = None
+        # Timestamped export if one was written, else rolling snapshot.
+        # Consumed by the post-run inspect prompt.
+        self.last_saved_path: Optional[Path] = None
 
     def reset(self):
         self.test_run = None
@@ -469,6 +481,7 @@ class TestRunManager:
         self.disable_request = False
         self.results_folder = None
         self.results_subfolder = None
+        self.last_saved_path = None
 
     def configure_local_store(
         self,
@@ -483,6 +496,10 @@ class TestRunManager:
         """
         self.results_folder = results_folder
         self.results_subfolder = results_subfolder
+        # The manager is a long-lived singleton, so a previous run's path
+        # could linger and mislead the inspect prompt into offering a stale
+        # file. Clear it whenever a new run configures its local store.
+        self.last_saved_path = None
 
     def set_test_run(self, test_run: TestRun):
         self.test_run = test_run
@@ -642,6 +659,9 @@ class TestRunManager:
         """Get formatted status string for a metric."""
         if metric_data.error:
             return "[red]ERRORED[/red]"
+        elif metric_data.success is None:
+            # No threshold: the metric has no pass/fail verdict
+            return "[dim]NONE[/dim]"
         elif metric_data.success:
             return "[green]PASSED[/green]"
         return "[red]FAILED[/red]"
@@ -678,16 +698,45 @@ class TestRunManager:
     @staticmethod
     def _count_metric_results(
         metrics_data: List[MetricData],
-    ) -> tuple[int, int]:
-        """Count passing and failing metrics."""
+    ) -> tuple[int, int, int, int]:
+        """Count passing and failing metrics, with flaky sub-counts.
+
+        Flaky metrics are included in pass/fail, and additionally counted
+        in the flaky sub-count of their verdict. Metrics without a verdict
+        (success=None, e.g. no threshold) are excluded from all counts.
+        """
         pass_count = 0
         fail_count = 0
+        flaky_pass_count = 0
+        flaky_fail_count = 0
         for metric_data in metrics_data:
+            if metric_data.success is None:
+                continue
             if metric_data.success:
                 pass_count += 1
+                if metric_data.flaky:
+                    flaky_pass_count += 1
             else:
                 fail_count += 1
-        return pass_count, fail_count
+                if metric_data.flaky:
+                    flaky_fail_count += 1
+        return pass_count, fail_count, flaky_pass_count, flaky_fail_count
+
+    @staticmethod
+    def _format_verdict_counts(
+        pass_count: int,
+        fail_count: int,
+        flaky_pass_count: int,
+        flaky_fail_count: int,
+    ) -> str:
+        """Format pass/fail counts, each with its own flaky sub-count."""
+        passed = f"passed={pass_count}"
+        if flaky_pass_count > 0:
+            passed += f" (flaky={flaky_pass_count})"
+        failed = f"failed={fail_count}"
+        if flaky_fail_count > 0:
+            failed += f" (flaky={flaky_fail_count})"
+        return f"{passed} | {failed}"
 
     def _add_test_case_header_row(
         self,
@@ -695,13 +744,18 @@ class TestRunManager:
         test_case_name: str,
         pass_count: int,
         fail_count: int,
+        flaky_pass_count: int = 0,
+        flaky_fail_count: int = 0,
     ):
         """Add test case header row with name and success rate."""
         success_rate = self._calculate_success_rate(pass_count, fail_count)
+        rate_str = f"{success_rate}% | " + self._format_verdict_counts(
+            pass_count, fail_count, flaky_pass_count, flaky_fail_count
+        )
         table.add_row(
             test_case_name,
             *[""] * 3,
-            f"{success_rate}%",
+            rate_str,
         )
 
     def _add_metric_rows(self, table: Table, metrics_data: List[MetricData]):
@@ -746,11 +800,16 @@ class TestRunManager:
                 test_case, display
             ):
                 continue
-            pass_count, fail_count = self._count_metric_results(
-                test_case.metrics_data
+            pass_count, fail_count, flaky_pass_count, flaky_fail_count = (
+                self._count_metric_results(test_case.metrics_data)
             )
             self._add_test_case_header_row(
-                table, test_case.name, pass_count, fail_count
+                table,
+                test_case.name,
+                pass_count,
+                fail_count,
+                flaky_pass_count,
+                flaky_fail_count,
             )
             self._add_metric_rows(table, test_case.metrics_data)
 
@@ -825,11 +884,18 @@ class TestRunManager:
                     f"[dim]No turns recorded for {conversational_test_case_name}.[/dim]"
                 )
             if conversational_test_case.metrics_data is not None:
-                pass_count, fail_count = self._count_metric_results(
-                    conversational_test_case.metrics_data
+                pass_count, fail_count, flaky_pass_count, flaky_fail_count = (
+                    self._count_metric_results(
+                        conversational_test_case.metrics_data
+                    )
                 )
                 self._add_test_case_header_row(
-                    table, conversational_test_case.name, pass_count, fail_count
+                    table,
+                    conversational_test_case.name,
+                    pass_count,
+                    fail_count,
+                    flaky_pass_count,
+                    flaky_fail_count,
                 )
                 self._add_metric_rows(
                     table, conversational_test_case.metrics_data
@@ -982,27 +1048,24 @@ class TestRunManager:
         return link, res.id
 
     def save_test_run_locally(self):
-        """Persist the current TestRun as `test_run_<YYYYMMDD_HHMMSS>.json`.
+        """Persist the current TestRun to disk.
 
-        Resolution order for the target directory:
-          1. `TestRunManager.results_folder` (set via `configure_local_store`,
-             typically from `DisplayConfig.results_folder`), optionally nested
-             under `results_subfolder`.
-          2. `DEEPEVAL_RESULTS_FOLDER` env var (legacy behavior).
-          3. No-op.
-
-        Hyperparameters, prompts, per-test-case scores and reasons all live
-        inside the resulting JSON via the existing TestRun pydantic schema —
-        the same payload Confident AI uploads — so AI tools like Cursor /
-        Claude Code can read the folder directly.
+        Always writes a rolling snapshot to `.deepeval/.latest_run_full.json`.
+        Additionally writes a timestamped `test_run_<YYYYMMDD_HHMMSS>.json` to
+        `results_folder` (or `DEEPEVAL_RESULTS_FOLDER`) when set.
         """
         if self.test_run is None:
             return
 
         from deepeval.evaluate.local_store import (
             resolve_target_dir,
+            write_rolling_test_run,
             write_test_run,
         )
+
+        rolling_path = write_rolling_test_run(self.test_run)
+        if rolling_path is not None:
+            self.last_saved_path = rolling_path
 
         target_dir = resolve_target_dir(
             results_folder=self.results_folder,
@@ -1020,6 +1083,7 @@ class TestRunManager:
 
         try:
             path = write_test_run(target_dir, self.test_run)
+            self.last_saved_path = path
             print(f"Test run saved at {path}")
         except Exception as e:
             print(
@@ -1046,14 +1110,24 @@ class TestRunManager:
             delete_file_if_exists(self.temp_file_path)
             return
 
+        # Mark the run as the official if requested via the `--official` CLI flag or `evaluate(official=True)`.
+        # Set here, in the main process right before upload, so it rides along in the test run
+        # creation payload (and survives any xdist worker disk round-trips).
+        if get_test_run_official():
+            test_run.official = True
+
+        # Don't block the post when all metrics errored — the spans still
+        # carry the underlying error info (populated by ``Observer.__exit__``)
+        # which the dashboard can render. Just warn so it's not mistaken
+        # for a successful run.
         valid_scores = test_run.construct_metrics_scores()
         if valid_scores == 0:
-            print("All metrics errored for all test cases, please try again.")
-            delete_file_if_exists(self.temp_file_path)
-            delete_file_if_exists(
-                global_test_run_cache_manager.temp_cache_file_name
+            console.print(
+                "\n[bold yellow]⚠ WARNING:[/bold yellow] All metrics errored "
+                "across every test case — no metric scores were recorded. "
+                "Posting the run anyway so you can inspect the trace + span "
+                "errors on the Confident AI dashboard.\n"
             )
-            return
         test_run.run_duration = runDuration
         test_run.calculate_test_passes_and_fails()
         test_run.sort_test_cases()
@@ -1099,6 +1173,7 @@ class TestRunManager:
                 if test_run.evaluation_cost
                 else "None"
             )
+            capture_login_prompt_shown(LoginPromptSurface.POST_EVAL)
             console.print(
                 f"\n\n[rgb(5,245,141)]✓[/rgb(5,245,141)] Evaluation completed 🎉! (time taken: {round(runDuration, 2)}s | token cost: {token_cost})\n"
                 f"» Test Results ({test_run.test_passed + test_run.test_failed} total tests):\n",

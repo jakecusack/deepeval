@@ -48,7 +48,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2Wvncga5gjxopQS7831xM6UYQKI",
               "service_tier": "default",
@@ -91,7 +91,8 @@
             "type": "Document"
           }
         ]
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0518-8170-70e3-a89f-aeeecdfa3439",
@@ -158,7 +159,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2Wvncga5gjxopQS7831xM6UYQKI",
               "service_tier": "default",
@@ -184,7 +185,8 @@
             }
           }
         ]
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0518-816f-7af3-b4f0-a85dba4a3fdc",
@@ -222,7 +224,8 @@
             "type": "Document"
           }
         ]
-      }
+      },
+      "integration": "LangChain"
     }
   ],
   "agentSpans": [],
@@ -254,9 +257,11 @@
         "content": "Python is a high-level programming language known for its simplicity. It supports multiple programming paradigms, including procedural and object-oriented programming (OOP).",
         "tool_calls": []
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 76.0,
-      "outputTokenCount": 166.0
+      "outputTokenCount": 166.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     }
   ],
   "retrieverSpans": [
@@ -273,7 +278,8 @@
         "page_content='Python is a high-level programming language known for its simplicity.' metadata={'source': 'doc1'}",
         "page_content='Python supports multiple programming paradigms including procedural and OOP.' metadata={'source': 'doc2'}"
       ],
-      "embedder": "unknown"
+      "embedder": "unknown",
+      "integration": "LangChain"
     }
   ],
   "toolSpans": [],
@@ -329,7 +335,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2Wvncga5gjxopQS7831xM6UYQKI",
           "service_tier": "default",

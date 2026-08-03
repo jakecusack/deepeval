@@ -100,15 +100,16 @@ evaluate(test_cases=[test_case], metrics=[metric])
 </Tab>
 </Tabs>
 
-There are **SEVEN** optional parameters when creating a `ContextualPrecisionMetric`:
+There are **EIGHT** optional parameters when creating a `ContextualPrecisionMetric`:
 
-- [Optional] `threshold`: a float representing the minimum passing threshold, defaulted to 0.5.
+- [Optional] `threshold`: a float representing the minimum passing threshold. Can also be set to `None` to run the metric in [score-only mode](/docs/metrics-introduction#metric-thresholds). Defaulted to `0.5`.
 - [Optional] `model`: a string specifying which of OpenAI's GPT models to use, **OR** [any custom LLM model](/docs/metrics-introduction#using-a-custom-llm) of type `DeepEvalBaseLLM`. Defaulted to <DefaultLLMModel />.
 - [Optional] `include_reason`: a boolean which when set to `True`, will include a reason for its evaluation score. Defaulted to `True`.
 - [Optional] `strict_mode`: a boolean which when set to `True`, enforces a binary metric score: 1 for perfection, 0 otherwise. It also overrides the current threshold and sets it to 1. Defaulted to `False`.
 - [Optional] `async_mode`: a boolean which when set to `True`, enables [concurrent execution within the `measure()` method.](/docs/metrics-introduction#measuring-metrics-in-async) Defaulted to `True`.
 - [Optional] `verbose_mode`: a boolean which when set to `True`, prints the intermediate steps used to calculate said metric to the console, as outlined in the [How Is It Calculated](#how-is-it-calculated) section. Defaulted to `False`.
 - [Optional] `evaluation_template`: a class of type `ContextualPrecisionTemplate`, which allows you to [override the default prompts](#customize-your-template) used to compute the `ContextualPrecisionMetric` score. Defaulted to `deepeval`'s `ContextualPrecisionTemplate`.
+- [Optional] `flaky`: a boolean which when set to `True`, [marks the metric as flaky](/docs/metrics-introduction#flaky-metrics). Defaulted to `False`.
 
 ### Within components
 
@@ -158,8 +159,8 @@ The `ContextualPrecisionMetric` score is calculated according to the following e
 
 :::info
 
-- **_k_** is the (i+1)<sup>th</sup> node in the `retrieval_context`
-- **_n_** is the length of the `retrieval_context`
+- **_k_** is the (i+1)<sup>th</sup> node in the `retrieval_context` (nodes with the same `source` are grouped together as a single node if `RetrievedContextData` is used)
+- **_n_** is the length of the `retrieval_context` (after grouping by `source`)
 - **_r<sub>k</sub>_** is the binary relevance for the k<sup>th</sup> node in the `retrieval_context`. _r<sub>k</sub>_ = 1 for nodes that are relevant, 0 if not.
 
 :::
@@ -224,3 +225,59 @@ JSON:
 metric = ContextualPrecisionMetric(evaluation_template=CustomTemplate)
 metric.measure(...)
 ```
+
+## FAQs
+
+<FAQs
+  qas={[
+    {
+      question: "Does contextual precision care about the order of my retrieved chunks?",
+      answer: (
+        <>
+          Yes — ranking is the whole point. A weighted cumulative precision
+          rewards relevant nodes appearing early in the{" "}
+          <code>retrieval_context</code> and penalizes irrelevant ones ranked
+          ahead. The same chunks in a different order score differently, which is
+          why this metric targets your re-ranker.
+        </>
+      ),
+    },
+    {
+      question:
+        "My retrieved chunks are all relevant but precision is still low — why?",
+      answer: (
+        <>
+          It asks whether relevant chunks are ranked above irrelevant ones, not
+          just present. Relevant nodes buried beneath noise in the{" "}
+          <code>retrieval_context</code> drop the score even when everything was
+          retrieved — implicating your re-ranker or top-K ordering.
+        </>
+      ),
+    },
+    {
+      question: "Should I use Contextual Precision or Contextual Recall?",
+      answer: (
+        <>
+          Use both. Precision asks "are relevant chunks ranked high enough?"
+          (ordering), while{" "}
+          <a href="/docs/metrics-contextual-recall">Contextual Recall</a> asks
+          "did I retrieve everything I needed?" (completeness). High recall with
+          low precision means right chunks, poor ranking.
+        </>
+      ),
+    },
+    {
+      question: "Why does it require an `expected_output`?",
+      answer: (
+        <>
+          It's reference-based: the LLM judges each node against the ideal{" "}
+          <code>expected_output</code>, not the generator's{" "}
+          <code>actual_output</code>, keeping ranking evaluation honest even
+          when the generator answered poorly. See the{" "}
+          <a href="/docs/evaluation-test-cases#llm-test-case">test case docs</a>.
+        </>
+      ),
+    },
+  ]}
+/>
+

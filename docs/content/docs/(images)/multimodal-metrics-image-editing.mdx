@@ -41,13 +41,14 @@ m_test_case = LLMTestCase(
 evaluate(test_cases=[m_test_case], metrics=[metric])
 ```
 
-There are **FIVE** optional parameters when creating a `ImageEditingMetric`:
+There are **SIX** optional parameters when creating a `ImageEditingMetric`:
 
-- [Optional] `threshold`: a float representing the minimum passing threshold, defaulted to 0.5.
+- [Optional] `threshold`: a float representing the minimum passing threshold. Can also be set to `None` to run the metric in [score-only mode](/docs/metrics-introduction#metric-thresholds). Defaulted to `0.5`.
 - [Optional] `include_reason`: a boolean which when set to `True`, will include a reason for its evaluation score. Defaulted to `True`.
 - [Optional] `strict_mode`: a boolean which when set to `True`, enforces a binary metric score: 1 for perfection, 0 otherwise. It also overrides the current threshold and sets it to 1. Defaulted to `False`.
 - [Optional] `async_mode`: a boolean which when set to `True`, enables [concurrent execution within the `measure()` method.](/docs/metrics-introduction#measuring-metrics-in-async) Defaulted to `True`.
 - [Optional] `verbose_mode`: a boolean which when set to `True`, prints the intermediate steps used to calculate said metric to the console, as outlined in the [How Is It Calculated](#how-is-it-calculated) section. Defaulted to `False`.
+- [Optional] `flaky`: a boolean which when set to `True`, [marks the metric as flaky](/docs/metrics-introduction#flaky-metrics). Defaulted to `False`.
 
 ### As a standalone
 
@@ -75,3 +76,63 @@ These scores assess aspects such as alignment with the prompt and resemblance to
 ### PQ Scores
 
 These scores evaluate the naturalness and absence of artifacts in the image. The minimum value among these sub-scores represents the PQ score. For the PQ evaluation, only the synthesized image is used to prevent confusion from the input conditions.
+
+## FAQs
+
+<FAQs
+  qas={[
+    {
+      question:
+        "What's the difference between Image Editing and Text to Image?",
+      answer: (
+        <>
+          <code>ImageEditingMetric</code> grades a transformation of an{" "}
+          <em>existing</em> image against an edit instruction, while{" "}
+          <a href="/docs/multimodal-metrics-text-to-image">
+            <code>TextToImageMetric</code>
+          </a>{" "}
+          grades an image generated from a prompt with no source. Pick Image
+          Editing whenever your model starts from a given image.
+        </>
+      ),
+    },
+    {
+      question: "How many images do the input and output each need?",
+      answer: (
+        <>
+          <strong>1 image in the input</strong> (the original, plus instruction
+          text) and <strong>1 in the output</strong> (the edited result), both
+          passed as <code>MLLMImage</code> objects in the{" "}
+          <a href="/docs/evaluation-test-cases#llm-test-case">
+            <code>LLMTestCase</code>
+          </a>
+          .
+        </>
+      ),
+    },
+    {
+      question: "Does the metric check that the edit followed the instruction?",
+      answer: (
+        <>
+          Yes — that's the SC half, scored against your edit
+          instruction and the edited image, so "change the shoes to
+          blue" producing red shoes drives SC down. PQ separately penalizes
+          artifacts from the edit.
+        </>
+      ),
+    },
+    {
+      question:
+        "My edit looks clean but scores low — what's the metric penalizing?",
+      answer: (
+        <>
+          Since <code>O = sqrt(min(SC) · min(PQ))</code>, a clean image (high PQ)
+          still scores low if it didn't apply the edit faithfully or altered
+          parts it shouldn't have (low SC). Read <code>metric.reason</code>{" "}
+          to see which pulled it down.
+        </>
+      ),
+    },
+  ]}
+/>
+

@@ -50,15 +50,16 @@ for golden in dataset.evals_iterator(metrics=[task_completion]):
     trip_planner_agent(golden.input)
 ```
 
-There are **SEVEN** optional parameters when creating a `TaskCompletionMetric`:
+There are **EIGHT** optional parameters when creating a `TaskCompletionMetric`:
 
-- [Optional] `threshold`: a float representing the minimum passing threshold, defaulted to 0.5.
+- [Optional] `threshold`: a float representing the minimum passing threshold. Can also be set to `None` to run the metric in [score-only mode](/docs/metrics-introduction#metric-thresholds). Defaulted to `0.5`.
 - [Optional] `task`: a string representing the task to be completed. If no task is supplied, it is automatically inferred from the trace. Defaulted to the `None`
 - [Optional] `model`: a string specifying which of OpenAI's GPT models to use, **OR** [any custom LLM model](/docs/metrics-introduction#using-a-custom-llm) of type `DeepEvalBaseLLM`. Defaulted to <DefaultLLMModel />.
 - [Optional] `include_reason`: a boolean which when set to `True`, will include a reason for its evaluation score. Defaulted to `True`.
 - [Optional] `strict_mode`: a boolean which when set to `True`, enforces a binary metric score: 1 for perfection, 0 otherwise. It also overrides the current threshold and sets it to 1. Defaulted to `False`.
 - [Optional] `async_mode`: a boolean which when set to `True`, enables [concurrent execution within the `measure()` method.](/docs/metrics-introduction#measuring-a-metric-in-async) Defaulted to `True`.
 - [Optional] `verbose_mode`: a boolean which when set to `True`, prints the intermediate steps used to calculate said metric to the console, as outlined in the [How Is It Calculated](#how-is-it-calculated) section. Defaulted to `False`.
+- [Optional] `flaky`: a boolean which when set to `True`, [marks the metric as flaky](/docs/metrics-introduction#flaky-metrics). Defaulted to `False`.
 
 To learn more about how the `evals_iterator` work, [click here.](/docs/evaluation-end-to-end-llm-evals#e2e-evals-for-tracing)
 
@@ -70,3 +71,67 @@ The `TaskCompletionMetric` score is calculated according to the following equati
 
 - **Task** and **Outcome** are extracted from the trace (or test case for end-to-end) using an LLM.
 - The **Alignment Score** measures how well the outcome aligns with the extracted (or user-provided) task, as judged by an LLM.
+
+## FAQs
+
+<FAQs
+  qas={[
+    {
+      question: "Does Task Completion need me to define the task, or is it inferred?",
+      answer: (
+        <>
+          Inferred by default. <code>task</code> defaults to <code>None</code>{" "}
+          and is extracted from your agent's trace. Set it explicitly only to
+          pin the agent against a specific goal.
+        </>
+      ),
+    },
+    {
+      question: "Why does Task Completion require tracing instead of a plain `LLMTestCase`?",
+      answer: (
+        <>
+          It scores the <strong>outcome</strong> of the whole run, deriving both
+          task and outcome from the full trace. So you must{" "}
+          <a href="/docs/evaluation-llm-tracing">set up tracing</a> and attach{" "}
+          <code>TaskCompletionMetric()</code> to an <code>@observe</code> run.
+        </>
+      ),
+    },
+    {
+      question: "Task Completion vs Plan Adherence — which one should I use?",
+      answer: (
+        <>
+          Task Completion for the <strong>outcome</strong> (did it accomplish
+          the task);{" "}
+          <a href="/docs/metrics-plan-adherence">Plan Adherence</a> for the{" "}
+          <strong>process</strong> (did it follow its plan). An agent can do one
+          without the other.
+        </>
+      ),
+    },
+    {
+      question: "Is Task Completion deterministic or LLM-judged?",
+      answer: (
+        <>
+          LLM-judged and referenceless. The score is the{" "}
+          <code>AlignmentScore</code> between the extracted{" "}
+          <strong>Task</strong> and <strong>Outcome</strong> — no expected
+          outputs to label. Set <code>include_reason=True</code> for the judge's
+          explanation.
+        </>
+      ),
+    },
+    {
+      question: "Can I use Task Completion with LangChain, OpenAI, or another framework?",
+      answer: (
+        <>
+          Yes. <code>deepeval</code> auto-traces agents built with{" "}
+          <a href="/integrations/frameworks/langchain">LangChain</a>,{" "}
+          <a href="/integrations/frameworks/openai">OpenAI</a>, LlamaIndex,
+          CrewAI, and more — see all{" "}
+          <a href="/integrations">framework integrations</a>.
+        </>
+      ),
+    },
+  ]}
+/>

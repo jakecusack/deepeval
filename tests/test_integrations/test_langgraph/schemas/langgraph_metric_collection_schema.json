@@ -50,7 +50,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2X3vAoiy8VRS6AukIOYSdzoJVY7",
               "service_tier": "default",
@@ -85,7 +85,7 @@
             }
           },
           {
-            "content": "25.0\u00b0C = 77.0\u00b0F",
+            "content": "25.0°C = 77.0°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -95,7 +95,7 @@
             "status": "success"
           },
           {
-            "content": "25\u00b0C = 77\u00b0F",
+            "content": "25°C = 77°F",
             "additional_kwargs": {
               "refusal": null
             },
@@ -116,7 +116,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2X5hFYExQCBgWQ6T1eJdvKXO6fD",
               "service_tier": "default",
@@ -143,7 +143,8 @@
           }
         ]
       },
-      "metricCollection": "trace_quality"
+      "metricCollection": "trace_quality",
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0518-a86d-7f53-b42c-9d4a25324e59",
@@ -184,7 +185,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2X3vAoiy8VRS6AukIOYSdzoJVY7",
               "service_tier": "default",
@@ -219,7 +220,7 @@
             }
           },
           {
-            "content": "25.0\u00b0C = 77.0\u00b0F",
+            "content": "25.0°C = 77.0°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -233,7 +234,7 @@
       "output": {
         "messages": [
           {
-            "content": "25\u00b0C = 77\u00b0F",
+            "content": "25°C = 77°F",
             "additional_kwargs": {
               "refusal": null
             },
@@ -254,7 +255,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2X5hFYExQCBgWQ6T1eJdvKXO6fD",
               "service_tier": "default",
@@ -280,7 +281,8 @@
             }
           }
         ]
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0518-aead-7470-aecf-63330fc3f9d4",
@@ -321,7 +323,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2X3vAoiy8VRS6AukIOYSdzoJVY7",
               "service_tier": "default",
@@ -356,7 +358,7 @@
             }
           },
           {
-            "content": "25.0\u00b0C = 77.0\u00b0F",
+            "content": "25.0°C = 77.0°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -366,7 +368,7 @@
             "status": "success"
           },
           {
-            "content": "25\u00b0C = 77\u00b0F",
+            "content": "25°C = 77°F",
             "additional_kwargs": {
               "refusal": null
             },
@@ -387,7 +389,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2X5hFYExQCBgWQ6T1eJdvKXO6fD",
               "service_tier": "default",
@@ -414,7 +416,8 @@
           }
         ]
       },
-      "output": "__end__"
+      "output": "__end__",
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0518-a86a-7012-bf8b-a3973494b18c",
@@ -455,7 +458,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2X3vAoiy8VRS6AukIOYSdzoJVY7",
               "service_tier": "default",
@@ -494,7 +497,7 @@
       "output": {
         "messages": [
           {
-            "content": "25.0\u00b0C = 77.0\u00b0F",
+            "content": "25.0°C = 77.0°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -508,8 +511,9 @@
       "toolsCalled": [
         {
           "name": "convert_temperature",
+          "type": "FUNCTION",
           "output": {
-            "content": "25.0\u00b0C = 77.0\u00b0F",
+            "content": "25.0°C = 77.0°F",
             "additional_kwargs": {},
             "response_metadata": {},
             "type": "tool",
@@ -522,7 +526,8 @@
             "celsius": 25
           }
         }
-      ]
+      ],
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0518-a056-74b3-9c92-f4f96302d658",
@@ -567,7 +572,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2X3vAoiy8VRS6AukIOYSdzoJVY7",
               "service_tier": "default",
@@ -602,7 +607,8 @@
             }
           }
         ]
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0518-a869-77e1-9eb4-3e251d214667",
@@ -643,7 +649,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2X3vAoiy8VRS6AukIOYSdzoJVY7",
               "service_tier": "default",
@@ -680,7 +686,8 @@
         ]
       },
       "output": "tools",
-      "metricCollection": "tool_performance"
+      "metricCollection": "tool_performance",
+      "integration": "LangChain"
     }
   ],
   "agentSpans": [],
@@ -704,7 +711,7 @@
         },
         {
           "role": "tool",
-          "content": "25.0\u00b0C = 77.0\u00b0F"
+          "content": "25.0°C = 77.0°F"
         },
         {
           "role": "Tool Input",
@@ -713,17 +720,19 @@
       ],
       "output": {
         "role": "AI",
-        "content": "25\u00b0C = 77\u00b0F",
+        "content": "25°C = 77°F",
         "tool_calls": []
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 187.0,
       "outputTokenCount": 79.0,
       "metricCollection": "llm_accuracy",
       "promptAlias": "langgraph-metric-collection-prompt",
       "promptVersion": "02.00.00",
       "promptLabel": "test-label",
-      "promptCommitHash": "bab04ec"
+      "promptCommitHash": "bab04ec",
+      "integration": "LangChain",
+      "provider": "OpenAI"
     },
     {
       "uuid": "019d0518-a057-7cc2-9d6d-f1f9ac63fa6d",
@@ -756,14 +765,16 @@
           }
         ]
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 148.0,
       "outputTokenCount": 88.0,
       "metricCollection": "llm_accuracy",
       "promptAlias": "langgraph-metric-collection-prompt",
       "promptVersion": "02.00.00",
       "promptLabel": "test-label",
-      "promptCommitHash": "bab04ec"
+      "promptCommitHash": "bab04ec",
+      "integration": "LangChain",
+      "provider": "OpenAI"
     }
   ],
   "retrieverSpans": [],
@@ -780,7 +791,7 @@
         "celsius": 25
       },
       "output": {
-        "content": "25.0\u00b0C = 77.0\u00b0F",
+        "content": "25.0°C = 77.0°F",
         "additional_kwargs": {},
         "response_metadata": {},
         "type": "tool",
@@ -788,7 +799,8 @@
         "id": "61137386-c018-4426-bcf3-324b367d3cfc",
         "tool_call_id": "call_j290PQqAclRnz0faquqKrnZG",
         "status": "success"
-      }
+      },
+      "integration": "LangChain"
     }
   ],
   "startTime": "2026-03-19T07:56:33.237Z",
@@ -844,7 +856,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2X3vAoiy8VRS6AukIOYSdzoJVY7",
           "service_tier": "default",
@@ -879,7 +891,7 @@
         }
       },
       {
-        "content": "25.0\u00b0C = 77.0\u00b0F",
+        "content": "25.0°C = 77.0°F",
         "additional_kwargs": {},
         "response_metadata": {},
         "type": "tool",
@@ -889,7 +901,7 @@
         "status": "success"
       },
       {
-        "content": "25\u00b0C = 77\u00b0F",
+        "content": "25°C = 77°F",
         "additional_kwargs": {
           "refusal": null
         },
@@ -910,7 +922,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2X5hFYExQCBgWQ6T1eJdvKXO6fD",
           "service_tier": "default",
@@ -941,8 +953,9 @@
   "toolsCalled": [
     {
       "name": "convert_temperature",
+      "type": "FUNCTION",
       "output": {
-        "content": "25.0\u00b0C = 77.0\u00b0F",
+        "content": "25.0°C = 77.0°F",
         "additional_kwargs": {},
         "response_metadata": {},
         "type": "tool",

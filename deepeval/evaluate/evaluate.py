@@ -1,3 +1,5 @@
+import os
+import warnings
 from typing import (
     List,
     Optional,
@@ -18,10 +20,8 @@ from deepeval.evaluate.configs import (
 from deepeval.evaluate.utils import (
     validate_assert_test_inputs,
     validate_evaluate_inputs,
-    print_test_result,
-    aggregate_metric_pass_rates,
-    write_test_result_to_file,
 )
+from deepeval.evaluate.console_report import EvaluationConsoleReport
 from deepeval.dataset import Golden
 from deepeval.prompt import Prompt
 from deepeval.test_case.utils import check_valid_test_cases_type
@@ -33,17 +33,19 @@ from deepeval.test_run.test_run import TEMP_FILE_PATH
 from deepeval.utils import (
     get_or_create_event_loop,
     open_browser,
+    set_test_run_official,
     should_ignore_errors,
     should_skip_on_missing_params,
     should_use_cache,
     should_verbose_print,
     get_identifier,
 )
-from deepeval.telemetry import capture_evaluation_run
+from deepeval.telemetry import Entrypoint, capture_evaluation_run
 from deepeval.metrics import (
     BaseMetric,
     BaseConversationalMetric,
 )
+from deepeval.metrics.utils import check_at_least_one_metric_has_threshold
 from deepeval.metrics.indicator import (
     format_metric_description,
 )
@@ -103,6 +105,7 @@ def assert_test(
         )
 
     elif test_case and metrics:
+        check_at_least_one_metric_has_threshold(metrics)
         if run_async:
             loop = get_or_create_event_loop()
             test_result = loop.run_until_complete(
@@ -152,7 +155,15 @@ def assert_test(
                 for metrics_data in failed_metrics_data
             ]
         )
-        raise AssertionError(f"Metrics: {failed_metrics_str} failed.")
+        if test_case is not None and test_case.flaky:
+            # Flaky test cases don't block CI: warn (shows up in pytest's
+            # warnings summary) but don't raise
+            warnings.warn(
+                f"Flaky test case failed (no assertion raised): "
+                f"Metrics: {failed_metrics_str} failed."
+            )
+        else:
+            raise AssertionError(f"Metrics: {failed_metrics_str} failed.")
 
 
 def evaluate(
@@ -168,6 +179,7 @@ def evaluate(
     hyperparameters: Optional[Dict[str, Union[str, int, float, Prompt]]] = None,
     # agnostic
     identifier: Optional[str] = None,
+    official: bool = False,
     _skip_reset: bool = False,
     # Configs
     async_config: Optional[AsyncConfig] = AsyncConfig(),
@@ -183,9 +195,11 @@ def evaluate(
     check_valid_test_cases_type(test_cases)
 
     if metrics:
+        check_at_least_one_metric_has_threshold(metrics)
 
         if not _skip_reset and not get_is_running_deepeval():
             global_test_run_manager.reset()
+        set_test_run_official(official)
         start_time = time.perf_counter()
 
         if display_config.show_indicator:
@@ -197,7 +211,7 @@ def evaluate(
                     )
                 )
 
-        with capture_evaluation_run("evaluate()"):
+        with capture_evaluation_run(Entrypoint.EVALUATE):
             if async_config.run_async:
                 loop = get_or_create_event_loop()
                 test_results = loop.run_until_complete(
@@ -224,16 +238,29 @@ def evaluate(
         end_time = time.perf_counter()
         run_duration = end_time - start_time
         if display_config.print_results:
-            for test_result in test_results:
-                print_test_result(test_result, display_config.display_option)
-            aggregate_metric_pass_rates(test_results)
-        if display_config.file_output_dir is not None:
-            for test_result in test_results:
-                write_test_result_to_file(
-                    test_result,
-                    display_config.display_option,
-                    display_config.file_output_dir,
-                )
+            console_report = EvaluationConsoleReport(test_results)
+            console_report.render_to_terminal(
+                truncate_passing_cases=display_config.truncate_passing_cases,
+                display_option=display_config.display_option,
+            )
+
+            # Handle full, un-truncated file exports
+            if display_config.file_output_dir is not None:
+                if display_config.file_type == "html":
+                    console_report.export_to_html(
+                        output_dir=display_config.file_output_dir,
+                        evaluation_name=identifier,
+                        theme_mode="dark",
+                    )
+                elif display_config.file_type == "md":
+                    console_report.export_to_markdown(
+                        output_dir=display_config.file_output_dir,
+                        evaluation_name=identifier,
+                    )
+                else:
+                    raise ValueError(
+                        f"Invalid file type: {display_config.file_type}"
+                    )
 
         test_run = global_test_run_manager.get_test_run()
         if hyperparameters is not None or test_run.hyperparameters is None:
@@ -275,6 +302,15 @@ def evaluate(
             confident_link, test_run_id = res
         else:
             confident_link = test_run_id = None
+
+        # All other side-effects (saving locally, posting to Confident AI,
+        # rendering the table) have already happened inside wrap_up_test_run.
+        # Offer to open the inspect TUI as the very last thing the user sees,
+        # so it never competes with the run output for attention.
+        from deepeval.evaluate.inspect_prompt import maybe_offer_inspect_tui
+
+        maybe_offer_inspect_tui(global_test_run_manager, display_config)
+
         return EvaluationResult(
             test_results=test_results,
             confident_link=confident_link,

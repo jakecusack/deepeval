@@ -54,7 +54,7 @@ class TestOpenRouterModel:
         assert model.cost_per_input_token == 0.0001
         assert model.cost_per_output_token == 0.0002
 
-    @patch("deepeval.models.llms.openrouter_model.AsyncOpenAI")
+    @patch("deepeval.models.llms.gateway_model.AsyncOpenAI")
     def test_generate_with_generation_kwargs(
         self, mock_async_openai_class, settings
     ):
@@ -96,7 +96,7 @@ class TestOpenRouterModel:
         assert call_args["top_p"] == 0.9
         assert output == "test response"
 
-    @patch("deepeval.models.llms.openrouter_model.AsyncOpenAI")
+    @patch("deepeval.models.llms.gateway_model.AsyncOpenAI")
     async def test_async_generate(self, mock_async_openai_class, settings):
         """Test async generation"""
         mock_client = MagicMock()
@@ -119,7 +119,7 @@ class TestOpenRouterModel:
 
         assert output == "async response"
 
-    @patch("deepeval.models.llms.openrouter_model.AsyncOpenAI")
+    @patch("deepeval.models.llms.gateway_model.AsyncOpenAI")
     def test_generate_with_structured_outputs(
         self, mock_async_openai_class, settings
     ):
@@ -161,7 +161,7 @@ class TestOpenRouterModel:
         assert output.field1 == "test"
         assert output.field2 == 42
 
-    @patch("deepeval.models.llms.openrouter_model.AsyncOpenAI")
+    @patch("deepeval.models.llms.gateway_model.AsyncOpenAI")
     def test_generate_with_structured_outputs_fallback(
         self, mock_async_openai_class, settings
     ):
@@ -252,7 +252,7 @@ class TestOpenRouterModel:
         cost = model.calculate_cost(input_tokens=100, output_tokens=50)
         assert cost is None
 
-    @patch("deepeval.models.llms.openrouter_model.OpenAI")
+    @patch("deepeval.models.llms.gateway_model.OpenAI")
     def test_client_kwargs_includes_custom_headers(
         self, mock_openai_class, settings
     ):
@@ -307,7 +307,7 @@ class TestOpenRouterModel:
             model = OpenRouterModel(model=model_name)
             assert model.name == model_name
 
-    @patch("deepeval.models.llms.openrouter_model.OpenAI")
+    @patch("deepeval.models.llms.gateway_model.OpenAI")
     def test_generate_raw_response(self, mock_openai_class, settings):
         """Test generate_raw_response method"""
         mock_client = Mock()
@@ -335,7 +335,7 @@ class TestOpenRouterModel:
         )
         assert completion == mock_completion
 
-    @patch("deepeval.models.llms.openrouter_model.OpenAI")
+    @patch("deepeval.models.llms.gateway_model.OpenAI")
     def test_generate_samples(self, mock_openai_class, settings):
         """Test generate_samples method"""
         mock_client = Mock()
@@ -383,3 +383,100 @@ class TestOpenRouterModel:
 
         with pytest.raises(DeepEvalError):
             OpenRouterModel(model="openai/gpt-4o-mini", temperature=-0.1)
+
+    def test_is_recognized_as_native_model(self, settings):
+        """OpenRouterModel must be flagged as a native deepeval model so that
+        `initialize_model()` returns the same instance with using_native=True
+        and metrics don't silently wrap it in a non-native adapter."""
+        from deepeval.metrics.utils import initialize_model, is_native_model
+
+        with settings.edit(persist=False):
+            settings.OPENROUTER_API_KEY = "test-key"
+
+        model = OpenRouterModel(model="openai/gpt-4o-mini")
+        assert is_native_model(model)
+
+        returned_model, using_native = initialize_model(model)
+        assert using_native is True
+        assert returned_model is model
+
+
+class NestedItem(BaseModel):
+    """Nested model emitted under `$defs` in the generated JSON schema."""
+
+    name: str
+
+
+class SchemaWithNestedModel(BaseModel):
+    items: list[NestedItem]
+
+
+class TestGatewaySchemaResponseFormat:
+    """`strict: true` requires `additionalProperties: false` on every object in
+    the schema, not just the root. Nested pydantic models land under `$defs`,
+    so a root-only flag makes providers reject the request with a 400:
+
+        Invalid schema for response_format 'X': In context=(),
+        'additionalProperties' is required to be supplied and to be false.
+    """
+
+    def test_flat_schema_sets_additional_properties_at_root(self):
+        response_format = OpenRouterModel._schema_response_format(SampleSchema)
+        schema = response_format["json_schema"]["schema"]
+
+        assert response_format["json_schema"]["strict"] is True
+        assert schema["additionalProperties"] is False
+
+    def test_nested_schema_sets_additional_properties_in_defs(self):
+        response_format = OpenRouterModel._schema_response_format(
+            SchemaWithNestedModel
+        )
+        schema = response_format["json_schema"]["schema"]
+
+        assert schema["additionalProperties"] is False
+        assert schema["$defs"]["NestedItem"]["additionalProperties"] is False
+
+    def test_recurses_into_inline_nested_objects(self):
+        """Guard the recursive descent directly.
+
+        Pydantic emits every model as a flat `$defs` entry, so a `$defs` model
+        never nests inside another `$defs` model — walking only the root plus
+        top-level `$defs` values would already cover every object a pydantic
+        schema produces. This test exercises the property that actually needs
+        the recursion: an object nested inside another object's `properties`
+        (hand-built or otherwise). A non-recursive implementation sets the flag
+        on the root but leaves the inner object untouched, which OpenAI's strict
+        mode rejects.
+        """
+        schema = {
+            "type": "object",
+            "properties": {
+                "outer": {
+                    "type": "object",
+                    "properties": {"inner": {"type": "string"}},
+                }
+            },
+        }
+
+        OpenRouterModel._set_additional_properties_false(schema)
+
+        assert schema["additionalProperties"] is False
+        assert schema["properties"]["outer"]["additionalProperties"] is False
+
+    def test_permissive_schema_is_forced_closed(self):
+        # A permissive schema (extra="allow" -> additionalProperties: true)
+        # cannot be honored under strict mode: the provider requires the flag
+        # to be false, not merely present, so preserving `true` would 400.
+        # The helper must overwrite it to false.
+        class Permissive(BaseModel):
+            model_config = {"extra": "allow"}
+
+            name: str
+
+        assert Permissive.model_json_schema()["additionalProperties"] is True
+
+        schema = OpenRouterModel._schema_response_format(Permissive)[
+            "json_schema"
+        ]["schema"]
+
+        assert schema["additionalProperties"] is False

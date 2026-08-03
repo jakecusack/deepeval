@@ -43,14 +43,15 @@ test_case = LLMTestCase(
 evaluate(test_cases=[test_case], metrics=[metric])
 ```
 
-There are **SIX** optional parameters when creating a `BiasMetric`:
+There are **SEVEN** optional parameters when creating a `BiasMetric`:
 
-- [Optional] `threshold`: a float representing the maximum passing threshold, defaulted to 0.5.
+- [Optional] `threshold`: a float representing the maximum passing threshold. Can also be set to `None` to run the metric in [score-only mode](/docs/metrics-introduction#metric-thresholds). Defaulted to `0.5`.
 - [Optional] `model`: a string specifying which of OpenAI's GPT models to use, **OR** [any custom LLM model](/docs/metrics-introduction#using-a-custom-llm) of type `DeepEvalBaseLLM`. Defaulted to <DefaultLLMModel />.
 - [Optional] `include_reason`: a boolean which when set to `True`, will include a reason for its evaluation score. Defaulted to `True`.
 - [Optional] `strict_mode`: a boolean which when set to `True`, enforces a binary metric score: 0 for perfection, 1 otherwise. It also overrides the current threshold and sets it to 0. Defaulted to `False`.
 - [Optional] `async_mode`: a boolean which when set to `True`, enables [concurrent execution within the `measure()` method.](/docs/metrics-introduction#measuring-metrics-in-async) Defaulted to `True`.
 - [Optional] `verbose_mode`: a boolean which when set to `True`, prints the intermediate steps used to calculate said metric to the console, as outlined in the [How Is It Calculated](#how-is-it-calculated) section. Defaulted to `False`.
+- [Optional] `flaky`: a boolean which when set to `True`, [marks the metric as flaky](/docs/metrics-introduction#flaky-metrics). Defaulted to `False`.
 
 :::note
 Unlike other metrics you've seen so far, the `threshold` for the `BiasMetric` is instead a maximum threshold.
@@ -135,3 +136,59 @@ In `deepeval`, an opinion is defined according to the following principles:
 :::info
 A mistaken statement of fact can easily be considered an opinion when presented in a different context, which is why `deepeval` recommends using LLMs with high reasoning capabilities for evaluation.
 :::
+
+## FAQs
+
+<FAQs
+  qas={[
+    {
+      question: "Is a higher or lower Bias score safer?",
+      answer: (
+        <>
+          <strong>Lower is safer.</strong> The <code>threshold</code> (default
+          0.5) is a <strong>maximum</strong>, so a case passes only when the
+          score is at or below it. 0 means no biased opinions; 1 means every
+          opinion was.
+        </>
+      ),
+    },
+    {
+      question: "Which types of bias does the metric detect?",
+      answer: (
+        <>
+          Four categories: <strong>gender</strong>, <strong>political</strong>,{" "}
+          <strong>racial/ethnic</strong>, and <strong>geographical</strong>.
+          It's <strong>referenceless</strong> — no target group argument; it
+          judges the <code>actual_output</code> on its own.
+        </>
+      ),
+    },
+    {
+      question: "Will Bias flag neutral, factual statements?",
+      answer: (
+        <>
+          It shouldn't. It only scores <strong>opinions</strong> — a verifiable
+          fact or attributed source isn't a biased opinion (see the{" "}
+          <a href="/docs/metrics-bias#definition-of-opinion">
+            definition of opinion
+          </a>
+          ). Use a high-reasoning <code>model</code>, since borderline facts can
+          read as opinions out of context.
+        </>
+      ),
+    },
+    {
+      question: "When should I use Bias instead of the Toxicity metric?",
+      answer: (
+        <>
+          Use <code>BiasMetric</code> for prejudiced treatment of groups, and the{" "}
+          <a href="/docs/metrics-toxicity">
+            <code>ToxicityMetric</code>
+          </a>{" "}
+          for hostile tone like insults and threats. An output can be one without
+          the other, so suites often run both.
+        </>
+      ),
+    },
+  ]}
+/>

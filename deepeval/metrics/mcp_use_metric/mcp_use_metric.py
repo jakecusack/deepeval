@@ -15,11 +15,11 @@ from deepeval.test_case import (
     MCPToolCall,
     MCPResourceCall,
     MCPPromptCall,
+    ToolCall,
 )
 from deepeval.metrics import BaseMetric
 from deepeval.models import DeepEvalBaseLLM
 from deepeval.metrics.indicator import metric_progress_indicator
-from .template import MCPUseMetricTemplate
 from .schema import MCPPrimitivesScore, MCPArgsScore
 
 
@@ -32,12 +32,13 @@ class MCPUseMetric(BaseMetric):
 
     def __init__(
         self,
-        threshold: float = 0.5,
+        threshold: Optional[float] = 0.5,
         model: Optional[Union[str, DeepEvalBaseLLM]] = None,
         include_reason: bool = True,
         strict_mode: bool = False,
         async_mode: bool = True,
         verbose_mode: bool = False,
+        flaky: bool = False,
     ):
         self.threshold = 1 if strict_mode else threshold
         self.model, self.using_native_model = initialize_model(model)
@@ -46,6 +47,7 @@ class MCPUseMetric(BaseMetric):
         self.async_mode = async_mode
         self.strict_mode = strict_mode
         self.verbose_mode = verbose_mode
+        self.flaky = flaky
 
     def measure(
         self,
@@ -66,6 +68,8 @@ class MCPUseMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self, _show_indicator=_show_indicator, _in_component=_in_component
         ):
@@ -83,7 +87,9 @@ class MCPUseMetric(BaseMetric):
                 available_primitives, primitives_used = (
                     self._get_mcp_interaction_text(
                         mcp_servers=test_case.mcp_servers,
-                        mcp_tools_called=test_case.mcp_tools_called or [],
+                        mcp_tools_called=test_case.mcp_tools_called
+                        or test_case.tools_called
+                        or [],
                         mcp_resources_called=test_case.mcp_resources_called
                         or [],
                         mcp_prompts_called=test_case.mcp_prompts_called or [],
@@ -103,7 +109,7 @@ class MCPUseMetric(BaseMetric):
                 self.reason = self._get_reason(
                     primitives_used_score, argument_correctness_score
                 )
-                self.success = self.score >= self.threshold
+                self.success = self.is_successful()
                 steps = [
                     f"{available_primitives}",
                     f"{primitives_used}",
@@ -138,6 +144,8 @@ class MCPUseMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self,
             async_mode=True,
@@ -147,7 +155,9 @@ class MCPUseMetric(BaseMetric):
             available_primitives, primitives_used = (
                 self._get_mcp_interaction_text(
                     mcp_servers=test_case.mcp_servers,
-                    mcp_tools_called=test_case.mcp_tools_called or [],
+                    mcp_tools_called=test_case.mcp_tools_called
+                    or test_case.tools_called
+                    or [],
                     mcp_resources_called=test_case.mcp_resources_called or [],
                     mcp_prompts_called=test_case.mcp_prompts_called or [],
                 )
@@ -166,7 +176,7 @@ class MCPUseMetric(BaseMetric):
             self.reason = self._get_reason(
                 primitives_used_score, argument_correctness_score
             )
-            self.success = self.score >= self.threshold
+            self.success = self.is_successful()
             steps = [
                 f"{available_primitives}",
                 f"{primitives_used}",
@@ -187,8 +197,13 @@ class MCPUseMetric(BaseMetric):
         available_primitives: str,
         primitives_used: str,
     ) -> MCPPrimitivesScore:
-        prompt = MCPUseMetricTemplate.get_primitive_correctness_prompt(
-            test_case, available_primitives, primitives_used
+        prompt = self._get_prompt(
+            "get_primitive_correctness_prompt",
+            template_class="MCPUseMetric",
+            test_case=test_case,
+            available_primitives=available_primitives,
+            primitives_used=primitives_used,
+            multimodal=test_case.multimodal,
         )
         return generate_with_schema_and_extract(
             metric=self,
@@ -204,8 +219,13 @@ class MCPUseMetric(BaseMetric):
         available_primitives: str,
         primitives_used: str,
     ) -> MCPPrimitivesScore:
-        prompt = MCPUseMetricTemplate.get_primitive_correctness_prompt(
-            test_case, available_primitives, primitives_used
+        prompt = self._get_prompt(
+            "get_primitive_correctness_prompt",
+            template_class="MCPUseMetric",
+            test_case=test_case,
+            available_primitives=available_primitives,
+            primitives_used=primitives_used,
+            multimodal=test_case.multimodal,
         )
         return await a_generate_with_schema_and_extract(
             metric=self,
@@ -221,8 +241,13 @@ class MCPUseMetric(BaseMetric):
         available_primitives: str,
         primitives_used: str,
     ) -> MCPArgsScore:
-        prompt = MCPUseMetricTemplate.get_mcp_argument_correctness_prompt(
-            test_case, available_primitives, primitives_used
+        prompt = self._get_prompt(
+            "get_mcp_argument_correctness_prompt",
+            template_class="MCPUseMetric",
+            test_case=test_case,
+            available_primitives=available_primitives,
+            primitives_used=primitives_used,
+            multimodal=test_case.multimodal,
         )
         return generate_with_schema_and_extract(
             metric=self,
@@ -238,8 +263,13 @@ class MCPUseMetric(BaseMetric):
         available_primitives: str,
         primitives_used: str,
     ) -> MCPArgsScore:
-        prompt = MCPUseMetricTemplate.get_mcp_argument_correctness_prompt(
-            test_case, available_primitives, primitives_used
+        prompt = self._get_prompt(
+            "get_mcp_argument_correctness_prompt",
+            template_class="MCPUseMetric",
+            test_case=test_case,
+            available_primitives=available_primitives,
+            primitives_used=primitives_used,
+            multimodal=test_case.multimodal,
         )
         return await a_generate_with_schema_and_extract(
             metric=self,
@@ -276,7 +306,7 @@ class MCPUseMetric(BaseMetric):
     def _get_mcp_interaction_text(
         self,
         mcp_servers: List[MCPServer],
-        mcp_tools_called: List[MCPToolCall],
+        mcp_tools_called: List[Union[MCPToolCall, ToolCall]],
         mcp_resources_called: List[MCPResourceCall],
         mcp_prompts_called: List[MCPPromptCall],
     ) -> tuple[str, str]:
@@ -368,16 +398,6 @@ class MCPUseMetric(BaseMetric):
         )
 
         return available_primitives, primitives_used
-
-    def is_successful(self) -> bool:
-        if self.error is not None:
-            self.success = False
-        else:
-            try:
-                self.success = self.score >= self.threshold
-            except TypeError:
-                self.success = False
-        return self.success
 
     @property
     def __name__(self):

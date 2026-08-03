@@ -1,4 +1,4 @@
-from typing import List, Optional, Type, Union
+from typing import List, Optional, Union
 
 from deepeval.metrics import BaseMetric
 from deepeval.test_case import (
@@ -15,7 +15,6 @@ from deepeval.metrics.utils import (
     a_generate_with_schema_and_extract,
     generate_with_schema_and_extract,
 )
-from deepeval.metrics.toxicity.template import ToxicityTemplate
 from deepeval.metrics.toxicity.schema import (
     Opinions,
     ToxicityVerdict,
@@ -33,13 +32,13 @@ class ToxicityMetric(BaseMetric):
 
     def __init__(
         self,
-        threshold: float = 0.5,
+        threshold: Optional[float] = 0.5,
         model: Optional[Union[str, DeepEvalBaseLLM]] = None,
         include_reason: bool = True,
         async_mode: bool = True,
         strict_mode: bool = False,
         verbose_mode: bool = False,
-        evaluation_template: Type[ToxicityTemplate] = ToxicityTemplate,
+        flaky: bool = False,
     ):
         self.threshold = 0 if strict_mode else threshold
         self.model, self.using_native_model = initialize_model(model)
@@ -48,7 +47,7 @@ class ToxicityMetric(BaseMetric):
         self.async_mode = async_mode
         self.strict_mode = strict_mode
         self.verbose_mode = verbose_mode
-        self.evaluation_template = evaluation_template
+        self.flaky = flaky
 
     def measure(
         self,
@@ -69,6 +68,8 @@ class ToxicityMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self, _show_indicator=_show_indicator, _in_component=_in_component
         ):
@@ -89,7 +90,7 @@ class ToxicityMetric(BaseMetric):
                 self.verdicts: List[ToxicityVerdict] = self._generate_verdicts()
                 self.score = self._calculate_score()
                 self.reason = self._generate_reason()
-                self.success = self.score <= self.threshold
+                self.success = self.is_successful()
                 self.score = self.score
                 self.verbose_logs = construct_verbose_logs(
                     self,
@@ -121,6 +122,8 @@ class ToxicityMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self,
             async_mode=True,
@@ -136,7 +139,7 @@ class ToxicityMetric(BaseMetric):
 
             self.score = self._calculate_score()
             self.reason = await self._a_generate_reason()
-            self.success = self.score <= self.threshold
+            self.success = self.is_successful()
             self.score = self.score
             self.verbose_logs = construct_verbose_logs(
                 self,
@@ -158,7 +161,8 @@ class ToxicityMetric(BaseMetric):
             if verdict.verdict.strip().lower() == "yes":
                 toxics.append(verdict.reason)
 
-        prompt: dict = self.evaluation_template.generate_reason(
+        prompt: dict = self._get_prompt(
+            "generate_reason",
             toxics=toxics,
             score=format(self.score, ".2f"),
         )
@@ -180,7 +184,8 @@ class ToxicityMetric(BaseMetric):
             if verdict.verdict.strip().lower() == "yes":
                 toxics.append(verdict.reason)
 
-        prompt: dict = self.evaluation_template.generate_reason(
+        prompt: dict = self._get_prompt(
+            "generate_reason",
             toxics=toxics,
             score=format(self.score, ".2f"),
         )
@@ -197,8 +202,9 @@ class ToxicityMetric(BaseMetric):
         if len(self.opinions) == 0:
             return []
 
-        prompt = self.evaluation_template.generate_verdicts(
-            opinions=self.opinions
+        prompt = self._get_prompt(
+            "generate_verdicts",
+            opinions=self.opinions,
         )
 
         verdicts: List[ToxicityVerdict] = (
@@ -218,8 +224,9 @@ class ToxicityMetric(BaseMetric):
         if len(self.opinions) == 0:
             return []
 
-        prompt = self.evaluation_template.generate_verdicts(
-            opinions=self.opinions
+        prompt = self._get_prompt(
+            "generate_verdicts",
+            opinions=self.opinions,
         )
 
         verdicts: List[ToxicityVerdict] = generate_with_schema_and_extract(
@@ -234,8 +241,9 @@ class ToxicityMetric(BaseMetric):
         return verdicts
 
     async def _a_generate_opinions(self, actual_output: str) -> List[str]:
-        prompt = self.evaluation_template.generate_opinions(
-            actual_output=actual_output
+        prompt = self._get_prompt(
+            "generate_opinions",
+            actual_output=actual_output,
         )
 
         return await a_generate_with_schema_and_extract(
@@ -247,8 +255,9 @@ class ToxicityMetric(BaseMetric):
         )
 
     def _generate_opinions(self, actual_output: str) -> List[str]:
-        prompt = self.evaluation_template.generate_opinions(
-            actual_output=actual_output
+        prompt = self._get_prompt(
+            "generate_opinions",
+            actual_output=actual_output,
         )
 
         return generate_with_schema_and_extract(
@@ -272,8 +281,10 @@ class ToxicityMetric(BaseMetric):
         score = toxic_count / total
         return 1 if self.strict_mode and score > self.threshold else score
 
-    def is_successful(self) -> bool:
-        if self.error is not None:
+    def is_successful(self) -> Optional[bool]:
+        if self.threshold is None:
+            self.success = None
+        elif self.error is not None:
             self.success = False
         else:
             try:

@@ -50,7 +50,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2W5mNk92UcOgk3VJC852vNS8pUg",
               "service_tier": "default",
@@ -95,7 +95,7 @@
             "status": "success"
           },
           {
-            "content": "Verdict: UNVERIFIED \u2014 the fact-check tool was unable to confirm the claim \"The earth is round.\"",
+            "content": "Verdict: UNVERIFIED — the fact-check tool was unable to confirm the claim \"The earth is round.\"",
             "additional_kwargs": {
               "refusal": null
             },
@@ -116,7 +116,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2W75zlffSvMZ1UZIOU6Fxlvb2k2",
               "service_tier": "default",
@@ -143,7 +143,8 @@
           }
         ],
         "intent": "fact_check"
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-bbd0-7690-a238-1813f4096258",
@@ -184,7 +185,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2W5mNk92UcOgk3VJC852vNS8pUg",
               "service_tier": "default",
@@ -234,7 +235,7 @@
       "output": {
         "messages": [
           {
-            "content": "Verdict: UNVERIFIED \u2014 the fact-check tool was unable to confirm the claim \"The earth is round.\"",
+            "content": "Verdict: UNVERIFIED — the fact-check tool was unable to confirm the claim \"The earth is round.\"",
             "additional_kwargs": {
               "refusal": null
             },
@@ -255,7 +256,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2W75zlffSvMZ1UZIOU6Fxlvb2k2",
               "service_tier": "default",
@@ -281,7 +282,8 @@
             }
           }
         ]
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-c80f-74a1-92ca-71d5a62894b4",
@@ -322,7 +324,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2W5mNk92UcOgk3VJC852vNS8pUg",
               "service_tier": "default",
@@ -367,7 +369,7 @@
             "status": "success"
           },
           {
-            "content": "Verdict: UNVERIFIED \u2014 the fact-check tool was unable to confirm the claim \"The earth is round.\"",
+            "content": "Verdict: UNVERIFIED — the fact-check tool was unable to confirm the claim \"The earth is round.\"",
             "additional_kwargs": {
               "refusal": null
             },
@@ -388,7 +390,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2W75zlffSvMZ1UZIOU6Fxlvb2k2",
               "service_tier": "default",
@@ -416,7 +418,8 @@
         ],
         "intent": "fact_check"
       },
-      "output": "__end__"
+      "output": "__end__",
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-bbcf-7d02-a5f7-456e9122b9ce",
@@ -457,7 +460,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2W5mNk92UcOgk3VJC852vNS8pUg",
               "service_tier": "default",
@@ -511,6 +514,7 @@
       "toolsCalled": [
         {
           "name": "fact_check",
+          "type": "FUNCTION",
           "output": {
             "content": "Fact check: UNVERIFIED - Unable to confirm this claim.",
             "additional_kwargs": {},
@@ -525,7 +529,8 @@
             "claim": "The earth is round."
           }
         }
-      ]
+      ],
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-bbd0-7690-a238-1806073ef3d2",
@@ -566,7 +571,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2W5mNk92UcOgk3VJC852vNS8pUg",
               "service_tier": "default",
@@ -613,7 +618,8 @@
         ],
         "intent": "fact_check"
       },
-      "output": "fact_check"
+      "output": "fact_check",
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-b66b-7491-b057-2918b2c168e0",
@@ -659,7 +665,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2W5mNk92UcOgk3VJC852vNS8pUg",
               "service_tier": "default",
@@ -694,7 +700,8 @@
             }
           }
         ]
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-bbcf-7d02-a5f7-455bcf384347",
@@ -735,7 +742,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2W5mNk92UcOgk3VJC852vNS8pUg",
               "service_tier": "default",
@@ -772,7 +779,8 @@
         ],
         "intent": "fact_check"
       },
-      "output": "tools"
+      "output": "tools",
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-b66b-7491-b057-28ff780f4d1a",
@@ -804,7 +812,8 @@
           }
         ],
         "intent": "fact_check"
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0517-b66b-7491-b057-29013e089c60",
@@ -826,7 +835,8 @@
         ],
         "intent": "fact_check"
       },
-      "output": "fact_check"
+      "output": "fact_check",
+      "integration": "LangChain"
     }
   ],
   "agentSpans": [],
@@ -871,12 +881,14 @@
       ],
       "output": {
         "role": "AI",
-        "content": "Verdict: UNVERIFIED \u2014 the fact-check tool was unable to confirm the claim \"The earth is round.\"",
+        "content": "Verdict: UNVERIFIED — the fact-check tool was unable to confirm the claim \"The earth is round.\"",
         "tool_calls": []
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 264.0,
-      "outputTokenCount": 224.0
+      "outputTokenCount": 224.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     },
     {
       "uuid": "019d0517-b66b-7491-b057-292d7134c72d",
@@ -921,9 +933,11 @@
           }
         ]
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 219.0,
-      "outputTokenCount": 27.0
+      "outputTokenCount": 27.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     }
   ],
   "retrieverSpans": [],
@@ -948,7 +962,8 @@
         "id": "ae34b5c9-3fd2-475f-bec7-41ae52c2370c",
         "tool_call_id": "call_1rgSdOsGYsqUVhrEwBB4n76H",
         "status": "success"
-      }
+      },
+      "integration": "LangChain"
     }
   ],
   "startTime": "2026-03-19T07:55:33.354Z",
@@ -1002,7 +1017,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2W5mNk92UcOgk3VJC852vNS8pUg",
           "service_tier": "default",
@@ -1047,7 +1062,7 @@
         "status": "success"
       },
       {
-        "content": "Verdict: UNVERIFIED \u2014 the fact-check tool was unable to confirm the claim \"The earth is round.\"",
+        "content": "Verdict: UNVERIFIED — the fact-check tool was unable to confirm the claim \"The earth is round.\"",
         "additional_kwargs": {
           "refusal": null
         },
@@ -1068,7 +1083,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2W75zlffSvMZ1UZIOU6Fxlvb2k2",
           "service_tier": "default",
@@ -1100,6 +1115,7 @@
   "toolsCalled": [
     {
       "name": "fact_check",
+      "type": "FUNCTION",
       "output": {
         "content": "Fact check: UNVERIFIED - Unable to confirm this claim.",
         "additional_kwargs": {},

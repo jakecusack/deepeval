@@ -33,7 +33,7 @@
             "additional_kwargs": {},
             "response_metadata": {
               "finish_reason": "tool_calls",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "service_tier": "default",
               "model_provider": "openai"
             },
@@ -93,11 +93,11 @@
             "status": "success"
           },
           {
-            "content": "Here are the results for AMZN:\n\n- Stock price: $185.20 (-0.3%)\n- Company info: Amazon.com Inc. \u2014 E-commerce/Cloud, Market Cap: $1.9T\n\nWould you like historical prices, recent news, or alerts set for price changes?",
+            "content": "Here are the results for AMZN:\n\n- Stock price: $185.20 (-0.3%)\n- Company info: Amazon.com Inc. — E-commerce/Cloud, Market Cap: $1.9T\n\nWould you like historical prices, recent news, or alerts set for price changes?",
             "additional_kwargs": {},
             "response_metadata": {
               "finish_reason": "stop",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "service_tier": "default",
               "model_provider": "openai"
             },
@@ -120,7 +120,8 @@
             }
           }
         ]
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0516-da7f-7023-bc45-8c5a3aae9b08",
@@ -144,7 +145,7 @@
             "additional_kwargs": {},
             "response_metadata": {
               "finish_reason": "tool_calls",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "service_tier": "default",
               "model_provider": "openai"
             },
@@ -208,11 +209,11 @@
       "output": {
         "messages": [
           {
-            "content": "Here are the results for AMZN:\n\n- Stock price: $185.20 (-0.3%)\n- Company info: Amazon.com Inc. \u2014 E-commerce/Cloud, Market Cap: $1.9T\n\nWould you like historical prices, recent news, or alerts set for price changes?",
+            "content": "Here are the results for AMZN:\n\n- Stock price: $185.20 (-0.3%)\n- Company info: Amazon.com Inc. — E-commerce/Cloud, Market Cap: $1.9T\n\nWould you like historical prices, recent news, or alerts set for price changes?",
             "additional_kwargs": {},
             "response_metadata": {
               "finish_reason": "stop",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "service_tier": "default",
               "model_provider": "openai"
             },
@@ -235,7 +236,8 @@
             }
           }
         ]
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0516-e026-70f2-b150-8cabb4ea5047",
@@ -259,7 +261,7 @@
             "additional_kwargs": {},
             "response_metadata": {
               "finish_reason": "tool_calls",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "service_tier": "default",
               "model_provider": "openai"
             },
@@ -319,11 +321,11 @@
             "status": "success"
           },
           {
-            "content": "Here are the results for AMZN:\n\n- Stock price: $185.20 (-0.3%)\n- Company info: Amazon.com Inc. \u2014 E-commerce/Cloud, Market Cap: $1.9T\n\nWould you like historical prices, recent news, or alerts set for price changes?",
+            "content": "Here are the results for AMZN:\n\n- Stock price: $185.20 (-0.3%)\n- Company info: Amazon.com Inc. — E-commerce/Cloud, Market Cap: $1.9T\n\nWould you like historical prices, recent news, or alerts set for price changes?",
             "additional_kwargs": {},
             "response_metadata": {
               "finish_reason": "stop",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "service_tier": "default",
               "model_provider": "openai"
             },
@@ -347,7 +349,8 @@
           }
         ]
       },
-      "output": "__end__"
+      "output": "__end__",
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0516-da7d-7ad1-ba0f-b3730243311b",
@@ -371,7 +374,7 @@
             "additional_kwargs": {},
             "response_metadata": {
               "finish_reason": "tool_calls",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "service_tier": "default",
               "model_provider": "openai"
             },
@@ -439,6 +442,7 @@
       "toolsCalled": [
         {
           "name": "get_company_info",
+          "type": "FUNCTION",
           "output": {
             "content": "Amazon.com Inc. - E-commerce/Cloud, Market Cap: $1.9T",
             "additional_kwargs": {},
@@ -455,6 +459,7 @@
         },
         {
           "name": "get_stock_price",
+          "type": "FUNCTION",
           "output": {
             "content": "$185.20 (-0.3%)",
             "additional_kwargs": {},
@@ -469,7 +474,8 @@
             "symbol": "AMZN"
           }
         }
-      ]
+      ],
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0516-d04d-7d71-ad5e-328eef7a4f66",
@@ -497,71 +503,7 @@
             "additional_kwargs": {},
             "response_metadata": {
               "finish_reason": "tool_calls",
-              "model_name": "gpt-5-mini-2025-08-07",
-              "service_tier": "default",
-              "model_provider": "openai"
-            },
-            "type": "ai",
-            "id": "lc_run--019d0516-d04d-7d71-ad5e-329f808456f7",
-            "tool_calls": [
-              {
-                "name": "get_stock_price",
-                "args": {
-                  "symbol": "AMZN"
-                },
-                "id": "call_Mfwm1usa0oMYVLarcYvtsvog",
-                "type": "tool_call"
-              },
-              {
-                "name": "get_company_info",
-                "args": {
-                  "symbol": "AMZN"
-                },
-                "id": "call_s2wanmn2375BcYu4T8sTBNYf",
-                "type": "tool_call"
-              }
-            ],
-            "invalid_tool_calls": [],
-            "usage_metadata": {
-              "input_tokens": 162,
-              "output_tokens": 121,
-              "total_tokens": 283,
-              "input_token_details": {
-                "audio": 0,
-                "cache_read": 0
-              },
-              "output_token_details": {
-                "audio": 0,
-                "reasoning": 64
-              }
-            }
-          }
-        ]
-      }
-    },
-    {
-      "uuid": "019d0516-da7c-7722-8dc3-31fc25e2d66b",
-      "name": "should_continue",
-      "status": "SUCCESS",
-      "type": "base",
-      "parentUuid": "019d0516-d04d-7d71-ad5e-328eef7a4f66",
-      "startTime": "2026-03-19T07:54:37.053Z",
-      "endTime": "2026-03-19T07:54:37.053Z",
-      "input": {
-        "messages": [
-          {
-            "content": "Get the stock price and company info for AMZN",
-            "additional_kwargs": {},
-            "response_metadata": {},
-            "type": "human",
-            "id": "167c5d3e-004d-479d-b4e4-dabf03cb7616"
-          },
-          {
-            "content": "",
-            "additional_kwargs": {},
-            "response_metadata": {
-              "finish_reason": "tool_calls",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "service_tier": "default",
               "model_provider": "openai"
             },
@@ -602,7 +544,73 @@
           }
         ]
       },
-      "output": "tools"
+      "integration": "LangChain"
+    },
+    {
+      "uuid": "019d0516-da7c-7722-8dc3-31fc25e2d66b",
+      "name": "should_continue",
+      "status": "SUCCESS",
+      "type": "base",
+      "parentUuid": "019d0516-d04d-7d71-ad5e-328eef7a4f66",
+      "startTime": "2026-03-19T07:54:37.053Z",
+      "endTime": "2026-03-19T07:54:37.053Z",
+      "input": {
+        "messages": [
+          {
+            "content": "Get the stock price and company info for AMZN",
+            "additional_kwargs": {},
+            "response_metadata": {},
+            "type": "human",
+            "id": "167c5d3e-004d-479d-b4e4-dabf03cb7616"
+          },
+          {
+            "content": "",
+            "additional_kwargs": {},
+            "response_metadata": {
+              "finish_reason": "tool_calls",
+              "model_name": "gpt-5.4-mini-2025-08-07",
+              "service_tier": "default",
+              "model_provider": "openai"
+            },
+            "type": "ai",
+            "id": "lc_run--019d0516-d04d-7d71-ad5e-329f808456f7",
+            "tool_calls": [
+              {
+                "name": "get_stock_price",
+                "args": {
+                  "symbol": "AMZN"
+                },
+                "id": "call_Mfwm1usa0oMYVLarcYvtsvog",
+                "type": "tool_call"
+              },
+              {
+                "name": "get_company_info",
+                "args": {
+                  "symbol": "AMZN"
+                },
+                "id": "call_s2wanmn2375BcYu4T8sTBNYf",
+                "type": "tool_call"
+              }
+            ],
+            "invalid_tool_calls": [],
+            "usage_metadata": {
+              "input_tokens": 162,
+              "output_tokens": 121,
+              "total_tokens": 283,
+              "input_token_details": {
+                "audio": 0,
+                "cache_read": 0
+              },
+              "output_token_details": {
+                "audio": 0,
+                "reasoning": 64
+              }
+            }
+          }
+        ]
+      },
+      "output": "tools",
+      "integration": "LangChain"
     }
   ],
   "agentSpans": [],
@@ -643,10 +651,10 @@
       ],
       "output": {
         "role": "AI",
-        "content": "Here are the results for AMZN:\n\n- Stock price: $185.20 (-0.3%)\n- Company info: Amazon.com Inc. \u2014 E-commerce/Cloud, Market Cap: $1.9T\n\nWould you like historical prices, recent news, or alerts set for price changes?",
+        "content": "Here are the results for AMZN:\n\n- Stock price: $185.20 (-0.3%)\n- Company info: Amazon.com Inc. — E-commerce/Cloud, Market Cap: $1.9T\n\nWould you like historical prices, recent news, or alerts set for price changes?",
         "tool_calls": []
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 257.0,
       "outputTokenCount": 63.0,
       "tokenIntervals": {
@@ -680,7 +688,7 @@
         "2026-03-19T07:54:38.055231Z": ".com",
         "2026-03-19T07:54:38.055481Z": " Inc",
         "2026-03-19T07:54:38.093828Z": ".",
-        "2026-03-19T07:54:38.094023Z": " \u2014",
+        "2026-03-19T07:54:38.094023Z": " —",
         "2026-03-19T07:54:38.113317Z": " E",
         "2026-03-19T07:54:38.113506Z": "-commerce",
         "2026-03-19T07:54:38.124769Z": "/",
@@ -714,7 +722,9 @@
         "2026-03-19T07:54:38.494845Z": "",
         "2026-03-19T07:54:38.495025Z": "",
         "2026-03-19T07:54:38.502224Z": ""
-      }
+      },
+      "integration": "LangChain",
+      "provider": "OpenAI"
     },
     {
       "uuid": "019d0516-d04d-7d71-ad5e-329f808456f7",
@@ -758,7 +768,7 @@
           }
         ]
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 162.0,
       "outputTokenCount": 121.0,
       "tokenIntervals": {
@@ -776,7 +786,9 @@
         "2026-03-19T07:54:37.051155Z": "",
         "2026-03-19T07:54:37.051512Z": "",
         "2026-03-19T07:54:37.051965Z": ""
-      }
+      },
+      "integration": "LangChain",
+      "provider": "OpenAI"
     }
   ],
   "retrieverSpans": [],
@@ -801,7 +813,8 @@
         "id": "55d38da2-3890-4a17-81d1-3ab14b2b944b",
         "tool_call_id": "call_Mfwm1usa0oMYVLarcYvtsvog",
         "status": "success"
-      }
+      },
+      "integration": "LangChain"
     },
     {
       "uuid": "019d0516-da7e-7cd3-ae5e-5b7103d9ca8c",
@@ -823,7 +836,8 @@
         "id": "04da5e4a-dc54-48e1-b4e6-7e25751d1ece",
         "tool_call_id": "call_s2wanmn2375BcYu4T8sTBNYf",
         "status": "success"
-      }
+      },
+      "integration": "LangChain"
     }
   ],
   "startTime": "2026-03-19T07:54:34.444Z",
@@ -861,7 +875,7 @@
         "additional_kwargs": {},
         "response_metadata": {
           "finish_reason": "tool_calls",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "service_tier": "default",
           "model_provider": "openai"
         },
@@ -921,11 +935,11 @@
         "status": "success"
       },
       {
-        "content": "Here are the results for AMZN:\n\n- Stock price: $185.20 (-0.3%)\n- Company info: Amazon.com Inc. \u2014 E-commerce/Cloud, Market Cap: $1.9T\n\nWould you like historical prices, recent news, or alerts set for price changes?",
+        "content": "Here are the results for AMZN:\n\n- Stock price: $185.20 (-0.3%)\n- Company info: Amazon.com Inc. — E-commerce/Cloud, Market Cap: $1.9T\n\nWould you like historical prices, recent news, or alerts set for price changes?",
         "additional_kwargs": {},
         "response_metadata": {
           "finish_reason": "stop",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "service_tier": "default",
           "model_provider": "openai"
         },
@@ -953,6 +967,7 @@
   "toolsCalled": [
     {
       "name": "get_company_info",
+      "type": "FUNCTION",
       "output": {
         "content": "Amazon.com Inc. - E-commerce/Cloud, Market Cap: $1.9T",
         "additional_kwargs": {},
@@ -969,6 +984,7 @@
     },
     {
       "name": "get_stock_price",
+      "type": "FUNCTION",
       "output": {
         "content": "$185.20 (-0.3%)",
         "additional_kwargs": {},

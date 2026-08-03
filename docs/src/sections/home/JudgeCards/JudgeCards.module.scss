@@ -172,7 +172,13 @@
   }
   25%,
   75% {
-    fill: color-mix(in oklab, #16a34a 80%, currentColor);
+    // Fallback for Safari < 16.2 (no color-mix support).
+    fill: #15803d;
+    // NB: must NOT use `currentColor` inside this color-mix. Interpolating
+    // an SVG `fill` toward `color-mix(..., currentColor)` deterministically
+    // crashes the Blink renderer (SIGABRT) as of Chrome 149. `currentColor`
+    // here resolves to the glyph color, so reference the token directly.
+    fill: color-mix(in oklab, #16a34a 80%, var(--color-fd-foreground));
     transform: scale(1);
   }
   90%,
@@ -200,6 +206,7 @@
   }
 
   .glyphConvScore {
-    fill: color-mix(in oklab, #16a34a 80%, currentColor);
+    fill: #15803d;
+    fill: color-mix(in oklab, #16a34a 80%, var(--color-fd-foreground));
   }
 }

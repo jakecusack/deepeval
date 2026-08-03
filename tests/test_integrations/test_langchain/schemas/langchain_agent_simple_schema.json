@@ -48,7 +48,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2ODrifWqqEk5c6OXum0hv4pCwWg",
               "service_tier": "default",
@@ -113,7 +113,7 @@
                 }
               },
               "model_provider": "openai",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "system_fingerprint": null,
               "id": "chatcmpl-DL2OF0gWqax1t2G0omteNnMNsPLgf",
               "service_tier": "default",
@@ -143,6 +143,7 @@
       "toolsCalled": [
         {
           "name": "search_web",
+          "type": "FUNCTION",
           "output": {
             "content": "San Francisco weather: Foggy, 58F, humidity 75%",
             "additional_kwargs": {},
@@ -156,7 +157,8 @@
             "query": "weather san francisco"
           }
         }
-      ]
+      ],
+      "integration": "LangChain"
     }
   ],
   "agentSpans": [],
@@ -192,9 +194,11 @@
         "content": "I searched the web for \"weather san francisco\" and found: \"San Francisco weather: Foggy, 58F, humidity 75%\".",
         "tool_calls": []
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 191.0,
-      "outputTokenCount": 34.0
+      "outputTokenCount": 34.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     },
     {
       "uuid": "019d0510-420f-7fa0-9b05-ddca70b56eaf",
@@ -227,9 +231,11 @@
           }
         ]
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 145.0,
-      "outputTokenCount": 90.0
+      "outputTokenCount": 90.0,
+      "integration": "LangChain",
+      "provider": "OpenAI"
     }
   ],
   "retrieverSpans": [],
@@ -253,7 +259,8 @@
         "name": "search_web",
         "tool_call_id": "call_765uvrSvWiO6ku3YwXabHVvM",
         "status": "success"
-      }
+      },
+      "integration": "LangChain"
     }
   ],
   "startTime": "2026-03-19T07:47:24.814Z",
@@ -308,7 +315,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2ODrifWqqEk5c6OXum0hv4pCwWg",
           "service_tier": "default",
@@ -373,7 +380,7 @@
             }
           },
           "model_provider": "openai",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "system_fingerprint": null,
           "id": "chatcmpl-DL2OF0gWqax1t2G0omteNnMNsPLgf",
           "service_tier": "default",
@@ -404,6 +411,7 @@
   "toolsCalled": [
     {
       "name": "search_web",
+      "type": "FUNCTION",
       "output": {
         "content": "San Francisco weather: Foggy, 58F, humidity 75%",
         "additional_kwargs": {},

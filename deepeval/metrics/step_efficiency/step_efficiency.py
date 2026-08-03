@@ -1,6 +1,6 @@
-from typing import Optional, List, Union, Dict
+from typing import Optional, List, Union
 
-from deepeval.utils import get_or_create_event_loop
+from deepeval.utils import get_or_create_event_loop, serialize_to_json
 from deepeval.metrics.utils import (
     construct_verbose_logs,
     check_llm_test_case_params,
@@ -12,9 +12,6 @@ from deepeval.test_case import LLMTestCase, SingleTurnParams
 from deepeval.metrics import BaseMetric
 from deepeval.models import DeepEvalBaseLLM
 from deepeval.metrics.indicator import metric_progress_indicator
-from deepeval.metrics.step_efficiency.template import (
-    StepEfficiencyTemplate,
-)
 from deepeval.metrics.step_efficiency.schema import Task, EfficiencyVerdict
 
 
@@ -27,12 +24,13 @@ class StepEfficiencyMetric(BaseMetric):
 
     def __init__(
         self,
-        threshold: float = 0.5,
+        threshold: Optional[float] = 0.5,
         model: Optional[Union[str, DeepEvalBaseLLM]] = None,
         include_reason: bool = True,
         async_mode: bool = True,
         strict_mode: bool = False,
         verbose_mode: bool = False,
+        flaky: bool = False,
     ):
         self.threshold = 1 if strict_mode else threshold
         self.model, self.using_native_model = initialize_model(model)
@@ -41,6 +39,7 @@ class StepEfficiencyMetric(BaseMetric):
         self.async_mode = async_mode
         self.strict_mode = strict_mode
         self.verbose_mode = verbose_mode
+        self.flaky = flaky
         self.requires_trace = True
 
     def measure(
@@ -61,6 +60,8 @@ class StepEfficiencyMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self, _show_indicator=_show_indicator, _in_component=_in_component
         ):
@@ -84,7 +85,7 @@ class StepEfficiencyMetric(BaseMetric):
                     else efficiency_verdict.score
                 )
                 self.reason = efficiency_verdict.reason
-                self.success = self.score >= self.threshold
+                self.success = self.is_successful()
                 self.verbose_logs = construct_verbose_logs(
                     self,
                     steps=[
@@ -114,6 +115,8 @@ class StepEfficiencyMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
 
         with metric_progress_indicator(
             self,
@@ -130,7 +133,7 @@ class StepEfficiencyMetric(BaseMetric):
                 else efficiency_verdict.score
             )
             self.reason = efficiency_verdict.reason
-            self.success = self.score >= self.threshold
+            self.success = self.is_successful()
             self.verbose_logs = construct_verbose_logs(
                 self,
                 steps=[
@@ -145,10 +148,13 @@ class StepEfficiencyMetric(BaseMetric):
     def _get_score(
         self, task: str, test_case: LLMTestCase
     ) -> EfficiencyVerdict:
-        if test_case._trace_dict is not None:
-            prompt = StepEfficiencyTemplate.get_execution_efficiency(
-                task, test_case._trace_dict
-            )
+        trace_json_str = serialize_to_json(test_case._trace_dict, indent=2)
+        prompt = self._get_prompt(
+            "get_execution_efficiency",
+            task=task,
+            trace_json_str=trace_json_str,
+            multimodal=test_case.multimodal,
+        )
 
         return generate_with_schema_and_extract(
             metric=self,
@@ -161,10 +167,13 @@ class StepEfficiencyMetric(BaseMetric):
     async def _a_get_score(
         self, task: str, test_case: LLMTestCase
     ) -> EfficiencyVerdict:
-        if test_case._trace_dict is not None:
-            prompt = StepEfficiencyTemplate.get_execution_efficiency(
-                task, test_case._trace_dict
-            )
+        trace_json_str = serialize_to_json(test_case._trace_dict, indent=2)
+        prompt = self._get_prompt(
+            "get_execution_efficiency",
+            task=task,
+            trace_json_str=trace_json_str,
+            multimodal=test_case.multimodal,
+        )
 
         return await a_generate_with_schema_and_extract(
             metric=self,
@@ -175,8 +184,11 @@ class StepEfficiencyMetric(BaseMetric):
         )
 
     def _extract_task_from_trace(self, test_case: LLMTestCase) -> str:
-        prompt = StepEfficiencyTemplate.extract_task_from_trace(
-            test_case._trace_dict
+        trace_json = serialize_to_json(test_case._trace_dict, indent=2)
+        prompt = self._get_prompt(
+            "extract_task_from_trace",
+            trace_json=trace_json,
+            multimodal=test_case.multimodal,
         )
         return generate_with_schema_and_extract(
             metric=self,
@@ -187,8 +199,11 @@ class StepEfficiencyMetric(BaseMetric):
         )
 
     async def _a_extract_task_from_trace(self, test_case: LLMTestCase) -> str:
-        prompt = StepEfficiencyTemplate.extract_task_from_trace(
-            test_case._trace_dict
+        trace_json = serialize_to_json(test_case._trace_dict, indent=2)
+        prompt = self._get_prompt(
+            "extract_task_from_trace",
+            trace_json=trace_json,
+            multimodal=test_case.multimodal,
         )
         return await a_generate_with_schema_and_extract(
             metric=self,
@@ -197,16 +212,6 @@ class StepEfficiencyMetric(BaseMetric):
             extract_schema=lambda s: s.task,
             extract_json=lambda data: data["task"],
         )
-
-    def is_successful(self) -> bool:
-        if self.error is not None:
-            self.success = False
-        else:
-            try:
-                self.success = self.score >= self.threshold
-            except TypeError:
-                self.success = False
-        return self.success
 
     @property
     def __name__(self):

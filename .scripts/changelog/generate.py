@@ -181,14 +181,40 @@ def sh(cmd: List[str]) -> str:
 
 def git_tag_date_ymd(tag: str) -> str:
     if tag not in tag_to_date:
-        date_value = sh(["git", "log", "-1", "--format=%cs", tag])
-        tag_to_date[tag] = date_value
+        try:
+            date_value = sh(["git", "log", "-1", "--format=%cs", tag])
+            tag_to_date[tag] = date_value
+        except subprocess.CalledProcessError:
+            import datetime
+
+            tag_to_date[tag] = datetime.datetime.now().strftime("%Y-%m-%d")
     return tag_to_date[tag]
+
+
+def tag_match_pattern(tag: str) -> str:
+    """Return the git ``--match`` glob for a tag's release scheme.
+
+    Monorepo releases are tagged per SDK (``python-v*`` / ``typescript-v*``);
+    legacy releases use ``v*``. This keeps the previous-tag lookup within the
+    same scheme so a Python release diffs against the prior Python release.
+    """
+    for prefix in ("python-v", "typescript-v"):
+        if tag.startswith(prefix):
+            return f"{prefix}*"
+    return "v*"
 
 
 def get_prev_tag(tag: str) -> str:
     return sh(
-        ["git", "describe", "--tags", "--abbrev=0", "--match", "v*", f"{tag}^"]
+        [
+            "git",
+            "describe",
+            "--tags",
+            "--abbrev=0",
+            "--match",
+            tag_match_pattern(tag),
+            f"{tag}^",
+        ]
     )
 
 
@@ -350,8 +376,11 @@ def stitch_truncated_title(title: str, body: str) -> str:
 
 
 def sanitize_for_multimodal_sentinel(prompt: str) -> str:
-    # Avoid DeepEval multimodal marker from being interpreted inside plain text prompts.
-    return prompt.replace("[DEEPEVAL:IMAGE:", "[DEEPEVAL:IMG:")
+    # DeepEval's GPTModel treats [DEEPEVAL:IMAGE:...] and [DEEPEVAL:PDF:...] tokens in a
+    # plain-text prompt as real image/PDF inputs (see check_if_multimodal). PR titles,
+    # bodies, and diffs can contain these tokens literally, which makes the model try to
+    # load a bogus URL. Break the sentinel so it can never be parsed as multimodal.
+    return re.sub(r"\[DEEPEVAL:(IMAGE|PDF):", r"[DEEPEVAL:\1_:", prompt)
 
 
 ######################
@@ -836,7 +865,7 @@ def prune_ignored(idx: ChangelogIndex, ignore_prs: set[int]) -> int:
     """
     Remove any PR entries whose number is in `ignore_prs`.
 
-    This is what makes deletions persist accross updates: add the PR number to the ignore block, re-run
+    This is what makes deletions persist across updates: add the PR number to the ignore block, re-run
     the generator, and the entry will be removed and it won't be re-added by future generator updates.
     """
     removed = 0
@@ -1429,7 +1458,9 @@ def main() -> int:
     )
 
     ap.add_argument(
-        "--output-dir", default="docs/changelog", help="Docs changelog dir"
+        "--output-dir",
+        default="docs/content/changelog",
+        help="Docs changelog dir",
     )
     ap.add_argument(
         "--github",

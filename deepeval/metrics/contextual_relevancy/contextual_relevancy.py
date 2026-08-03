@@ -1,5 +1,6 @@
-from typing import Optional, List, Type, Union
+from typing import Dict, Optional, List, Union
 import asyncio
+import textwrap
 
 from deepeval.utils import (
     get_or_create_event_loop,
@@ -18,14 +19,41 @@ from deepeval.test_case import (
 )
 from deepeval.metrics import BaseMetric
 from deepeval.models import DeepEvalBaseLLM
-from deepeval.metrics.contextual_relevancy.template import (
-    ContextualRelevancyTemplate,
-)
 from deepeval.metrics.indicator import metric_progress_indicator
 from deepeval.metrics.contextual_relevancy.schema import (
     ContextualRelevancyVerdicts,
     ContextualRelevancyScoreReason,
 )
+
+
+def _contextual_relevancy_verdict_kwargs(multimodal: bool) -> Dict[str, str]:
+    context_type = "context (image or string)" if multimodal else "context"
+    statement_or_image = "statement or image" if multimodal else "statement"
+    if multimodal:
+        extraction_instructions = textwrap.dedent(
+            """
+            If the context is textual, you should first extract the statements found in the context if the context, which are high level information found in the context, before deciding on a verdict and optionally a reason for each statement.
+            If the context is an image, `statement` should be a description of the image. Do not assume any information not visibly available.
+            """
+        ).strip()
+        empty_context_instruction = ""
+    else:
+        extraction_instructions = (
+            "You should first extract statements found in the context, which are "
+            "high level information found in the context, before deciding on a "
+            "verdict and optionally a reason for each statement."
+        )
+        empty_context_instruction = (
+            "\nIf provided context contains no actual content or statements then: "
+            'give "no" as a "verdict",\nput context into "statement", and '
+            '"No statements found in provided context." into "reason".'
+        )
+    return {
+        "context_type": context_type,
+        "statement_or_image": statement_or_image,
+        "extraction_instructions": extraction_instructions,
+        "empty_context_instruction": empty_context_instruction,
+    }
 
 
 class ContextualRelevancyMetric(BaseMetric):
@@ -36,15 +64,13 @@ class ContextualRelevancyMetric(BaseMetric):
 
     def __init__(
         self,
-        threshold: float = 0.5,
+        threshold: Optional[float] = 0.5,
         model: Optional[Union[str, DeepEvalBaseLLM]] = None,
         include_reason: bool = True,
         async_mode: bool = True,
         strict_mode: bool = False,
         verbose_mode: bool = False,
-        evaluation_template: Type[
-            ContextualRelevancyTemplate
-        ] = ContextualRelevancyTemplate,
+        flaky: bool = False,
     ):
         self.threshold = 1 if strict_mode else threshold
         self.model, self.using_native_model = initialize_model(model)
@@ -53,7 +79,7 @@ class ContextualRelevancyMetric(BaseMetric):
         self.async_mode = async_mode
         self.strict_mode = strict_mode
         self.verbose_mode = verbose_mode
-        self.evaluation_template = evaluation_template
+        self.flaky = flaky
 
     def measure(
         self,
@@ -76,6 +102,8 @@ class ContextualRelevancyMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self, _show_indicator=_show_indicator, _in_component=_in_component
         ):
@@ -100,7 +128,7 @@ class ContextualRelevancyMetric(BaseMetric):
                 ]
                 self.score = self._calculate_score()
                 self.reason = self._generate_reason(input, multimodal)
-                self.success = self.score >= self.threshold
+                self.success = self.is_successful()
                 self.verbose_logs = construct_verbose_logs(
                     self,
                     steps=[
@@ -132,6 +160,8 @@ class ContextualRelevancyMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self,
             async_mode=True,
@@ -151,7 +181,7 @@ class ContextualRelevancyMetric(BaseMetric):
             )
             self.score = self._calculate_score()
             self.reason = await self._a_generate_reason(input, multimodal)
-            self.success = self.score >= self.threshold
+            self.success = self.is_successful()
             self.verbose_logs = construct_verbose_logs(
                 self,
                 steps=[
@@ -174,7 +204,8 @@ class ContextualRelevancyMetric(BaseMetric):
                 else:
                     relevant_statements.append(verdict.statement)
 
-        prompt: dict = self.evaluation_template.generate_reason(
+        prompt: dict = self._get_prompt(
+            "generate_reason",
             input=input,
             irrelevant_statements=irrelevant_statements,
             relevant_statements=relevant_statements,
@@ -203,7 +234,8 @@ class ContextualRelevancyMetric(BaseMetric):
                 else:
                     relevant_statements.append(verdict.statement)
 
-        prompt: dict = self.evaluation_template.generate_reason(
+        prompt: dict = self._get_prompt(
+            "generate_reason",
             input=input,
             irrelevant_statements=irrelevant_statements,
             relevant_statements=relevant_statements,
@@ -237,8 +269,12 @@ class ContextualRelevancyMetric(BaseMetric):
     async def _a_generate_verdicts(
         self, input: str, context: List[str], multimodal: bool
     ) -> ContextualRelevancyVerdicts:
-        prompt = self.evaluation_template.generate_verdicts(
-            input=input, context=context, multimodal=multimodal
+        prompt = self._get_prompt(
+            "generate_verdicts",
+            input=input,
+            context=context,
+            multimodal=multimodal,
+            **_contextual_relevancy_verdict_kwargs(multimodal),
         )
 
         return await a_generate_with_schema_and_extract(
@@ -252,8 +288,12 @@ class ContextualRelevancyMetric(BaseMetric):
     def _generate_verdicts(
         self, input: str, context: str, multimodal: bool
     ) -> ContextualRelevancyVerdicts:
-        prompt = self.evaluation_template.generate_verdicts(
-            input=input, context=context, multimodal=multimodal
+        prompt = self._get_prompt(
+            "generate_verdicts",
+            input=input,
+            context=context,
+            multimodal=multimodal,
+            **_contextual_relevancy_verdict_kwargs(multimodal),
         )
 
         return generate_with_schema_and_extract(
@@ -263,16 +303,6 @@ class ContextualRelevancyMetric(BaseMetric):
             extract_schema=lambda r: r,
             extract_json=lambda data: ContextualRelevancyVerdicts(**data),
         )
-
-    def is_successful(self) -> bool:
-        if self.error is not None:
-            self.success = False
-        else:
-            try:
-                self.success = self.score >= self.threshold
-            except TypeError:
-                self.success = False
-        return self.success
 
     @property
     def __name__(self):

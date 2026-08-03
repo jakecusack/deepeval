@@ -1,5 +1,5 @@
 from asyncio import Task
-from typing import TYPE_CHECKING, Iterator, List, Optional, Union, Literal
+from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Union, Literal
 from dataclasses import dataclass, field
 from opentelemetry.trace import Tracer
 from opentelemetry.context import Context, attach, detach
@@ -24,22 +24,36 @@ from deepeval.dataset.utils import (
     format_turns,
     check_tracer,
     parse_turns,
+    serialize_retrieval_context,
+    join_retrieval_context,
+    reconstruct_retrieval_context,
     trimAndLoadJson,
 )
 from deepeval.dataset.api import (
     APIDataset,
     DatasetHttpResponse,
     APIQueueDataset,
+    DatasetVersion,
+    DatasetVersionsHttpResponse,
+    CreateDatasetVersionHttpResponse,
 )
 from deepeval.dataset.golden import Golden, ConversationalGolden
+from deepeval.prompt import Prompt
+from deepeval.evaluate.console_report import EvaluationConsoleReport
 from deepeval.metrics.base_metric import BaseMetric
-from deepeval.telemetry import capture_evaluation_run, capture_pull_dataset
+from deepeval.telemetry import (
+    Entrypoint,
+    capture_evaluation_run,
+)
 from deepeval.test_case import (
     LLMTestCase,
     ConversationalTestCase,
     ToolCall,
 )
-from deepeval.test_run.hyperparameters import process_hyperparameters
+from deepeval.test_run.hyperparameters import (
+    process_hyperparameters,
+    process_prompts,
+)
 from deepeval.test_run.test_run import TEMP_FILE_PATH
 from deepeval.utils import (
     convert_keys_to_snake_case,
@@ -70,6 +84,7 @@ class EvaluationDataset:
     _multi_turn: bool = field(default=False)
     _alias: Union[str, None] = field(default=None)
     _id: Union[str, None] = field(default=None)
+    _version: Union[str, None] = field(default=None)
 
     _goldens: List[Golden] = field(default_factory=[], repr=None)
     _conversational_goldens: List[ConversationalGolden] = field(
@@ -88,6 +103,7 @@ class EvaluationDataset:
     ):
         self._alias = None
         self._id = None
+        self._version = None
         self.confident_api_key = confident_api_key
         if len(goldens) > 0:
             self._multi_turn = (
@@ -110,7 +126,7 @@ class EvaluationDataset:
         return (
             f"{self.__class__.__name__}(test_cases={self.test_cases}, "
             f"goldens={self.goldens}, "
-            f"_alias={self._alias}, _id={self._id}, _multi_turn={self._multi_turn})"
+            f"_alias={self._alias}, _id={self._id}, _version={self._version}, _multi_turn={self._multi_turn})"
         )
 
     @property
@@ -311,7 +327,9 @@ class EvaluationDataset:
         ]
         retrieval_contexts = [
             (
-                retrieval_context.split(retrieval_context_col_delimiter)
+                reconstruct_retrieval_context(
+                    retrieval_context.split(retrieval_context_col_delimiter)
+                )
                 if retrieval_context
                 else []
             )
@@ -447,7 +465,9 @@ class EvaluationDataset:
             actual_output = json_obj[actual_output_key_name]
             expected_output = json_obj.get(expected_output_key_name)
             context = json_obj.get(context_key_name)
-            retrieval_context = json_obj.get(retrieval_context_key_name)
+            retrieval_context = reconstruct_retrieval_context(
+                json_obj.get(retrieval_context_key_name)
+            )
             tools_called_data = json_obj.get(tools_called_key_name, [])
             tools_called = [ToolCall(**tool) for tool in tools_called_data]
             expected_tools_data = json_obj.get(expected_tools_key_name, [])
@@ -523,7 +543,9 @@ class EvaluationDataset:
         ]
         retrieval_contexts = [
             (
-                retrieval_context.split(retrieval_context_col_delimiter)
+                reconstruct_retrieval_context(
+                    retrieval_context.split(retrieval_context_col_delimiter)
+                )
                 if retrieval_context
                 else []
             )
@@ -707,7 +729,9 @@ class EvaluationDataset:
                 actual_output = json_obj.get(actual_output_key_name)
                 expected_output = json_obj.get(expected_output_key_name)
                 context = json_obj.get(context_key_name)
-                retrieval_context = json_obj.get(retrieval_context_key_name)
+                retrieval_context = reconstruct_retrieval_context(
+                    json_obj.get(retrieval_context_key_name)
+                )
                 tools_called = json_obj.get(tools_called_key_name)
                 expected_tools = json_obj.get(expected_tools_key_name)
                 comments = json_obj.get(comments_key_name)
@@ -828,9 +852,11 @@ class EvaluationDataset:
                 context = parse_context(
                     json_obj.get(context_key_name), context_col_delimiter
                 )
-                retrieval_context = parse_context(
-                    json_obj.get(retrieval_context_key_name),
-                    retrieval_context_col_delimiter,
+                retrieval_context = reconstruct_retrieval_context(
+                    parse_context(
+                        json_obj.get(retrieval_context_key_name),
+                        retrieval_context_col_delimiter,
+                    )
                 )
                 tools_called = parse_tools(json_obj.get(tools_called_key_name))
                 expected_tools = parse_tools(
@@ -865,6 +891,7 @@ class EvaluationDataset:
         self,
         alias: str,
         finalized: bool = True,
+        version: Optional[str] = None,
     ):
         if len(self.goldens) == 0:
             raise ValueError(
@@ -876,6 +903,7 @@ class EvaluationDataset:
             goldens=self.goldens if not self._multi_turn else None,
             conversationalGoldens=(self.goldens if self._multi_turn else None),
             finalized=finalized,
+            version=version,
         )
         try:
             body = api_dataset.model_dump(by_alias=True, exclude_none=True)
@@ -903,80 +931,114 @@ class EvaluationDataset:
         finalized: bool = True,
         auto_convert_goldens_to_test_cases: bool = False,
         public: bool = False,
+        version: Optional[str] = None,
     ):
         api = Api(api_key=self.confident_api_key)
-        with capture_pull_dataset():
-            with Progress(
-                SpinnerColumn(style="rgb(106,0,255)"),
-                BarColumn(bar_width=60),
-                TextColumn("[progress.description]{task.description}"),
-                transient=False,
-            ) as progress:
-                task_id = progress.add_task(
-                    f"Pulling [rgb(106,0,255)]'{alias}'[/rgb(106,0,255)] from Confident AI...",
-                    total=100,
-                )
-                start_time = time.perf_counter()
-                data, _ = api.send_request(
-                    method=HttpMethods.GET,
-                    endpoint=Endpoints.DATASET_ALIAS_ENDPOINT,
-                    url_params={"alias": alias},
-                    params={
-                        "finalized": str(finalized).lower(),
-                        "public": str(public).lower(),
-                    },
-                )
+        with Progress(
+            SpinnerColumn(style="rgb(106,0,255)"),
+            BarColumn(bar_width=60),
+            TextColumn("[progress.description]{task.description}"),
+            transient=False,
+        ) as progress:
+            task_id = progress.add_task(
+                f"Pulling [rgb(106,0,255)]'{alias}'[/rgb(106,0,255)] from Confident AI...",
+                total=100,
+            )
+            start_time = time.perf_counter()
+            params = {
+                "finalized": str(finalized).lower(),
+                "public": str(public).lower(),
+            }
+            if version is not None:
+                params["version"] = version
+            data, _ = api.send_request(
+                method=HttpMethods.GET,
+                endpoint=Endpoints.DATASET_ALIAS_ENDPOINT,
+                url_params={"alias": alias},
+                params=params,
+            )
 
-                response = DatasetHttpResponse(
-                    id=data["id"],
-                    goldens=convert_keys_to_snake_case(
-                        data.get("goldens", None)
-                    ),
-                    conversationalGoldens=convert_keys_to_snake_case(
-                        data.get("conversationalGoldens", None)
-                    ),
-                )
+            response = DatasetHttpResponse(
+                id=data["id"],
+                version=data.get("version"),
+                goldens=convert_keys_to_snake_case(data.get("goldens", None)),
+                conversationalGoldens=convert_keys_to_snake_case(
+                    data.get("conversationalGoldens", None)
+                ),
+            )
 
-                self._alias = alias
-                self._id = response.id
-                self._multi_turn = response.goldens is None
-                self.goldens = []
-                self.test_cases = []
+            self._alias = alias
+            self._id = response.id
+            self._version = response.version
+            self._multi_turn = response.goldens is None
+            self.goldens = []
+            self.test_cases = []
 
-                if auto_convert_goldens_to_test_cases:
-                    if not self._multi_turn:
-                        llm_test_cases = convert_goldens_to_test_cases(
-                            response.goldens, alias, response.id
-                        )
-                        self._llm_test_cases.extend(llm_test_cases)
-                    else:
-                        conversational_test_cases = (
-                            convert_convo_goldens_to_convo_test_cases(
-                                response.conversational_goldens,
-                                alias,
-                                response.id,
-                            )
-                        )
-                        self._conversational_test_cases.extend(
-                            conversational_test_cases
-                        )
+            if auto_convert_goldens_to_test_cases:
+                if not self._multi_turn:
+                    llm_test_cases = convert_goldens_to_test_cases(
+                        response.goldens, alias, response.id
+                    )
+                    self._llm_test_cases.extend(llm_test_cases)
                 else:
-                    if not self._multi_turn:
-                        self.goldens = response.goldens
-                    else:
-                        self.goldens = response.conversational_goldens
+                    conversational_test_cases = (
+                        convert_convo_goldens_to_convo_test_cases(
+                            response.conversational_goldens,
+                            alias,
+                            response.id,
+                        )
+                    )
+                    self._conversational_test_cases.extend(
+                        conversational_test_cases
+                    )
+            else:
+                if not self._multi_turn:
+                    self.goldens = response.goldens
+                else:
+                    self.goldens = response.conversational_goldens
 
-                    for golden in self.goldens:
-                        golden._dataset_alias = alias
-                        golden._dataset_id = response.id
+                for golden in self.goldens:
+                    golden._dataset_alias = alias
+                    golden._dataset_id = response.id
 
-                end_time = time.perf_counter()
-                time_taken = format(end_time - start_time, ".2f")
-                progress.update(
-                    task_id,
-                    description=f"{progress.tasks[task_id].description} [rgb(25,227,160)]Done! ({time_taken}s)",
-                    completed=100,
-                )
+            end_time = time.perf_counter()
+            time_taken = format(end_time - start_time, ".2f")
+            progress.update(
+                task_id,
+                description=f"{progress.tasks[task_id].description} [rgb(25,227,160)]Done! ({time_taken}s)",
+                completed=100,
+            )
+
+    def create_version(
+        self, alias: str, _verbose: Optional[bool] = True
+    ) -> str:
+        api = Api(api_key=self.confident_api_key)
+        data, _ = api.send_request(
+            method=HttpMethods.POST,
+            endpoint=Endpoints.DATASET_ALIAS_VERSIONS_ENDPOINT,
+            url_params={"alias": alias},
+            body={},
+        )
+        response = CreateDatasetVersionHttpResponse(**data)
+        self._alias = alias
+        self._id = response.id
+        self._version = response.version
+        if _verbose:
+            console = Console()
+            console.print(
+                f"✅ New Dataset version successfully created: {response.version}"
+            )
+        return response.version
+
+    def get_versions(self, alias: str) -> List[DatasetVersion]:
+        api = Api(api_key=self.confident_api_key)
+        data, _ = api.send_request(
+            method=HttpMethods.GET,
+            endpoint=Endpoints.DATASET_ALIAS_VERSIONS_ENDPOINT,
+            url_params={"alias": alias},
+        )
+        response = DatasetVersionsHttpResponse(**data)
+        return response.versions
 
     def queue(
         self,
@@ -1207,7 +1269,9 @@ class EvaluationDataset:
                                 if hasattr(t, "model_dump"):
                                     dumped.append(
                                         t.model_dump(
-                                            by_alias=True, exclude_none=True
+                                            by_alias=True,
+                                            exclude_none=True,
+                                            mode="json",
                                         )
                                     )
                                 elif hasattr(t, "dict"):
@@ -1221,7 +1285,9 @@ class EvaluationDataset:
                                 "input": golden.input,
                                 "actual_output": golden.actual_output,
                                 "expected_output": golden.expected_output,
-                                "retrieval_context": golden.retrieval_context,
+                                "retrieval_context": serialize_retrieval_context(
+                                    golden.retrieval_context
+                                ),
                                 "context": golden.context,
                                 "name": golden.name,
                                 "comments": golden.comments,
@@ -1313,10 +1379,8 @@ class EvaluationDataset:
                         ]
                     )
                     for golden in goldens:
-                        retrieval_context = (
-                            "|".join(golden.retrieval_context)
-                            if golden.retrieval_context is not None
-                            else None
+                        retrieval_context = join_retrieval_context(
+                            golden.retrieval_context
                         )
                         context = (
                             "|".join(golden.context)
@@ -1333,7 +1397,9 @@ class EvaluationDataset:
                                 if hasattr(t, "model_dump"):
                                     dumped.append(
                                         t.model_dump(
-                                            by_alias=True, exclude_none=True
+                                            by_alias=True,
+                                            exclude_none=True,
+                                            mode="json",
                                         )
                                     )
                                 elif hasattr(t, "dict"):
@@ -1396,10 +1462,8 @@ class EvaluationDataset:
                             "custom_column_key_values": golden.custom_column_key_values,
                         }
                     else:
-                        retrieval_context = (
-                            "|".join(golden.retrieval_context)
-                            if golden.retrieval_context is not None
-                            else None
+                        retrieval_context = join_retrieval_context(
+                            golden.retrieval_context
                         )
                         context = (
                             "|".join(golden.context)
@@ -1416,7 +1480,9 @@ class EvaluationDataset:
                                 if hasattr(t, "model_dump"):
                                     dumped.append(
                                         t.model_dump(
-                                            by_alias=True, exclude_none=True
+                                            by_alias=True,
+                                            exclude_none=True,
+                                            mode="json",
                                         )
                                     )
                                 elif hasattr(t, "dict"):
@@ -1447,6 +1513,9 @@ class EvaluationDataset:
     def evals_iterator(
         self,
         metrics: Optional[List[BaseMetric]] = None,
+        hyperparameters: Optional[
+            Dict[str, Union[str, int, float, Prompt]]
+        ] = None,
         identifier: Optional[str] = None,
         display_config: Optional["DisplayConfig"] = None,
         cache_config: Optional["CacheConfig"] = None,
@@ -1483,7 +1552,7 @@ class EvaluationDataset:
         if not self.goldens or len(self.goldens) == 0:
             raise ValueError("Unable to evaluate dataset with no goldens.")
         goldens = self.goldens
-        with capture_evaluation_run("traceable evaluate()"):
+        with capture_evaluation_run(Entrypoint.EVALS_ITERATOR):
             global_test_run_manager.reset()
             start_time = time.perf_counter()
             test_results: List[TestResult] = []
@@ -1539,18 +1608,35 @@ class EvaluationDataset:
             end_time = time.perf_counter()
             run_duration = end_time - start_time
             if display_config.print_results:
-                for test_result in test_results:
-                    print_test_result(
-                        test_result, display_config.display_option
-                    )
-                aggregate_metric_pass_rates(test_results)
-            if display_config.file_output_dir is not None:
-                for test_result in test_results:
-                    write_test_result_to_file(
-                        test_result,
-                        display_config.display_option,
-                        display_config.file_output_dir,
-                    )
+                console_report = EvaluationConsoleReport(test_results)
+                console_report.render_to_terminal(
+                    truncate_passing_cases=display_config.truncate_passing_cases
+                )
+
+                # Handle full, un-truncated file exports
+                if display_config.file_output_dir is not None:
+                    if display_config.file_type == "html":
+                        console_report.export_to_html(
+                            output_dir=display_config.file_output_dir,
+                            evaluation_name=identifier,
+                            theme_mode="dark",
+                        )
+                    elif display_config.file_type == "md":
+                        console_report.export_to_markdown(
+                            output_dir=display_config.file_output_dir,
+                            evaluation_name=identifier,
+                        )
+                    else:
+                        raise ValueError(
+                            f"Invalid file type: {display_config.file_type}"
+                        )
+
+            test_run = global_test_run_manager.get_test_run()
+            if hyperparameters is not None or test_run.hyperparameters is None:
+                test_run.hyperparameters = process_hyperparameters(
+                    hyperparameters
+                )
+                test_run.prompts = process_prompts(hyperparameters)
 
             global_test_run_manager.configure_local_store(
                 results_folder=display_config.results_folder,
@@ -1572,6 +1658,16 @@ class EvaluationDataset:
                     confident_link, test_run_id = res
                 else:
                     confident_link = test_run_id = None
+
+                # Offer the inspect TUI after all other run output has
+                # flushed — mirrors the placement in
+                # ``deepeval/evaluate/evaluate.py``.
+                from deepeval.evaluate.inspect_prompt import (
+                    maybe_offer_inspect_tui,
+                )
+
+                maybe_offer_inspect_tui(global_test_run_manager, display_config)
+
                 return EvaluationResult(
                     test_results=test_results,
                     confident_link=confident_link,

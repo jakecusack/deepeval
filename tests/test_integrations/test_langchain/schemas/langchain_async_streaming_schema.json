@@ -31,7 +31,7 @@
             "additional_kwargs": {},
             "response_metadata": {
               "finish_reason": "tool_calls",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "service_tier": "default",
               "model_provider": "openai"
             },
@@ -76,7 +76,7 @@
             "additional_kwargs": {},
             "response_metadata": {
               "finish_reason": "stop",
-              "model_name": "gpt-5-mini-2025-08-07",
+              "model_name": "gpt-5.4-mini-2025-08-07",
               "service_tier": "default",
               "model_provider": "openai"
             },
@@ -103,6 +103,7 @@
       "toolsCalled": [
         {
           "name": "get_stock_price",
+          "type": "FUNCTION",
           "output": {
             "content": "$378.90 (+0.8%)",
             "additional_kwargs": {},
@@ -116,7 +117,8 @@
             "symbol": "MSFT"
           }
         }
-      ]
+      ],
+      "integration": "LangChain"
     }
   ],
   "agentSpans": [],
@@ -152,7 +154,7 @@
         "content": "The current stock price for MSFT is $378.90 (+0.8%).",
         "tool_calls": []
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 191.0,
       "outputTokenCount": 20.0,
       "tokenIntervals": {
@@ -177,7 +179,9 @@
         "2026-03-19T07:45:19.170527Z": "",
         "2026-03-19T07:45:19.170917Z": "",
         "2026-03-19T07:45:19.171444Z": ""
-      }
+      },
+      "integration": "LangChain",
+      "provider": "OpenAI"
     },
     {
       "uuid": "019d050e-49e1-7040-a47f-0c68d2f7d38f",
@@ -210,7 +214,7 @@
           }
         ]
       },
-      "model": "gpt-5-mini-2025-08-07",
+      "model": "gpt-5.4-mini-2025-08-07",
       "inputTokenCount": 151.0,
       "outputTokenCount": 89.0,
       "tokenIntervals": {
@@ -224,7 +228,9 @@
         "2026-03-19T07:45:18.031734Z": "",
         "2026-03-19T07:45:18.031981Z": "",
         "2026-03-19T07:45:18.042033Z": ""
-      }
+      },
+      "integration": "LangChain",
+      "provider": "OpenAI"
     }
   ],
   "retrieverSpans": [],
@@ -248,7 +254,8 @@
         "name": "get_stock_price",
         "tool_call_id": "call_fiEIavrr3LU8090LiczhXln2",
         "status": "success"
-      }
+      },
+      "integration": "LangChain"
     }
   ],
   "startTime": "2026-03-19T07:45:15.744Z",
@@ -287,7 +294,7 @@
         "additional_kwargs": {},
         "response_metadata": {
           "finish_reason": "tool_calls",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "service_tier": "default",
           "model_provider": "openai"
         },
@@ -332,7 +339,7 @@
         "additional_kwargs": {},
         "response_metadata": {
           "finish_reason": "stop",
-          "model_name": "gpt-5-mini-2025-08-07",
+          "model_name": "gpt-5.4-mini-2025-08-07",
           "service_tier": "default",
           "model_provider": "openai"
         },
@@ -360,6 +367,7 @@
   "toolsCalled": [
     {
       "name": "get_stock_price",
+      "type": "FUNCTION",
       "output": {
         "content": "$378.90 (+0.8%)",
         "additional_kwargs": {},

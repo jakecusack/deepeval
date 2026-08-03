@@ -1,4 +1,4 @@
-from typing import List, Optional, Type, Union
+from typing import List, Optional, Union
 
 from deepeval.metrics import BaseMetric
 from deepeval.test_case import (
@@ -15,7 +15,6 @@ from deepeval.metrics.utils import (
     a_generate_with_schema_and_extract,
     generate_with_schema_and_extract,
 )
-from deepeval.metrics.bias.template import BiasTemplate
 from deepeval.metrics.bias.schema import (
     Opinions,
     BiasVerdict,
@@ -32,13 +31,13 @@ class BiasMetric(BaseMetric):
 
     def __init__(
         self,
-        threshold: float = 0.5,
+        threshold: Optional[float] = 0.5,
         model: Optional[Union[str, DeepEvalBaseLLM]] = None,
         include_reason: bool = True,
         async_mode: bool = True,
         strict_mode: bool = False,
         verbose_mode: bool = False,
-        evaluation_template: Type[BiasTemplate] = BiasTemplate,
+        flaky: bool = False,
     ):
         self.threshold = 0 if strict_mode else threshold
         self.model, self.using_native_model = initialize_model(model)
@@ -47,7 +46,7 @@ class BiasMetric(BaseMetric):
         self.async_mode = async_mode
         self.strict_mode = strict_mode
         self.verbose_mode = verbose_mode
-        self.evaluation_template = evaluation_template
+        self.flaky = flaky
 
     def measure(
         self,
@@ -68,6 +67,8 @@ class BiasMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self, _show_indicator=_show_indicator, _in_component=_in_component
         ):
@@ -90,7 +91,7 @@ class BiasMetric(BaseMetric):
                 )
                 self.score = self._calculate_score()
                 self.reason = self._generate_reason()
-                self.success = self.score <= self.threshold
+                self.success = self.is_successful()
                 self.verbose_logs = construct_verbose_logs(
                     self,
                     steps=[
@@ -120,6 +121,8 @@ class BiasMetric(BaseMetric):
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
+        self.input_tokens = 0 if self.using_native_model else None
+        self.output_tokens = 0 if self.using_native_model else None
         with metric_progress_indicator(
             self,
             async_mode=True,
@@ -134,7 +137,7 @@ class BiasMetric(BaseMetric):
             )
             self.score = self._calculate_score()
             self.reason = await self._a_generate_reason()
-            self.success = self.score <= self.threshold
+            self.success = self.is_successful()
             self.verbose_logs = construct_verbose_logs(
                 self,
                 steps=[
@@ -157,7 +160,8 @@ class BiasMetric(BaseMetric):
             if verdict.verdict.strip().lower() == "yes":
                 biases.append(verdict.reason)
 
-        prompt: dict = self.evaluation_template.generate_reason(
+        prompt: dict = self._get_prompt(
+            "generate_reason",
             biases=biases,
             score=format(self.score, ".2f"),
         )
@@ -179,7 +183,8 @@ class BiasMetric(BaseMetric):
             if verdict.verdict.strip().lower() == "yes":
                 biases.append(verdict.reason)
 
-        prompt: dict = self.evaluation_template.generate_reason(
+        prompt: dict = self._get_prompt(
+            "generate_reason",
             biases=biases,
             score=format(self.score, ".2f"),
         )
@@ -196,8 +201,10 @@ class BiasMetric(BaseMetric):
         if len(self.opinions) == 0:
             return []
 
-        prompt = self.evaluation_template.generate_verdicts(
-            opinions=self.opinions, multimodal=multimodal
+        prompt = self._get_prompt(
+            "generate_verdicts",
+            multimodal=multimodal,
+            opinions=self.opinions,
         )
 
         return await a_generate_with_schema_and_extract(
@@ -214,8 +221,10 @@ class BiasMetric(BaseMetric):
         if len(self.opinions) == 0:
             return []
 
-        prompt = self.evaluation_template.generate_verdicts(
-            opinions=self.opinions, multimodal=multimodal
+        prompt = self._get_prompt(
+            "generate_verdicts",
+            multimodal=multimodal,
+            opinions=self.opinions,
         )
 
         return generate_with_schema_and_extract(
@@ -231,8 +240,10 @@ class BiasMetric(BaseMetric):
     async def _a_generate_opinions(
         self, actual_output: str, multimodal: bool
     ) -> List[str]:
-        prompt = self.evaluation_template.generate_opinions(
-            actual_output=actual_output, multimodal=multimodal
+        prompt = self._get_prompt(
+            "generate_opinions",
+            multimodal=multimodal,
+            actual_output=actual_output,
         )
 
         return await a_generate_with_schema_and_extract(
@@ -246,8 +257,10 @@ class BiasMetric(BaseMetric):
     def _generate_opinions(
         self, actual_output: str, multimodal: bool
     ) -> List[str]:
-        prompt = self.evaluation_template.generate_opinions(
-            actual_output=actual_output, multimodal=multimodal
+        prompt = self._get_prompt(
+            "generate_opinions",
+            multimodal=multimodal,
+            actual_output=actual_output,
         )
 
         return generate_with_schema_and_extract(
@@ -271,8 +284,10 @@ class BiasMetric(BaseMetric):
         score = bias_count / number_of_verdicts
         return 1 if self.strict_mode and score > self.threshold else score
 
-    def is_successful(self) -> bool:
-        if self.error is not None:
+    def is_successful(self) -> Optional[bool]:
+        if self.threshold is None:
+            self.success = None
+        elif self.error is not None:
             self.success = False
         else:
             try:
